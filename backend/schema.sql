@@ -418,10 +418,37 @@ begin
     execute format(
       'create policy %I_lectura on %I for select using (true)', t, t);
 
-    -- Escritura directa solo para sesiones autenticadas
+    -- Escritura con anon incluido. El acceso de guias es hoy una
+    -- lista de usuarios en config.js, asi que la aplicacion entera
+    -- corre con el rol anon: si la escritura exigiera sesion
+    -- autenticada, administracion no podria crear ni un grupo.
+    -- Ver MODO ESTRICTO al final para cerrarlo de verdad.
     execute format(
-      'create policy %I_escritura on %I for all to authenticated
+      'create policy %I_escritura on %I for all to anon, authenticated
          using (true) with check (true)', t, t);
+  end loop;
+end $$;
+
+-- ------------------------------------------------------------
+--  Permisos de tabla
+-- ------------------------------------------------------------
+--  Las politicas RLS solo filtran filas; ademas hace falta el
+--  permiso de tabla. Se conceden explicitamente para no depender
+--  de que el proyecto tenga activado "exponer tablas nuevas
+--  automaticamente": asi el esquema funciona con esa opcion
+--  encendida o apagada.
+-- ------------------------------------------------------------
+
+grant usage on schema public to anon, authenticated;
+
+do $$
+declare t text;
+begin
+  foreach t in array array['colegio','viaje','grupo','pulsera','alumno',
+                           'parada','marcaje','guia','grupo_guia']
+  loop
+    execute format(
+      'grant select, insert, update, delete on %I to anon, authenticated', t);
   end loop;
 end $$;
 
@@ -485,7 +512,9 @@ end $$;
 --                                         double precision, integer, uuid) from anon;
 -- revoke execute on function liberar_grupo(uuid) from anon;
 --
--- -- Ademas, quitar de las tablas la escritura directa de anon:
+-- -- Quitar a anon la escritura directa, en permisos y en politicas.
+-- -- El alumno conserva lectura y las funciones de registro y marcaje,
+-- -- que es todo lo que necesita: pedirle login romperia el flujo del QR.
 -- do $$
 -- declare t text;
 -- begin
@@ -493,5 +522,9 @@ end $$;
 --                            'parada','marcaje','guia','grupo_guia']
 --   loop
 --     execute format('revoke insert, update, delete on %I from anon', t);
+--     execute format('drop policy if exists %I_escritura on %I', t, t);
+--     execute format(
+--       'create policy %I_escritura on %I for all to authenticated
+--          using (true) with check (true)', t, t);
 --   end loop;
 -- end $$;
