@@ -59,6 +59,9 @@ faltan tres chicos. Todo el diseño asume que la red es la excepción:
   incluido el mapa y el lector de códigos.
 - **Precarga**: el guía toca *Descargar* con señal y se lleva el grupo entero
   —alumnos, pulseras, parada activa— en el teléfono.
+- **Abrir parada sin señal**: se crea localmente y se sube al reconectar. Si al
+  sincronizar resulta que otro guía ya había abierto una, se **adopta la suya** y
+  los escaneos locales se reapuntan a ella: nunca se duplica ni se pisa.
 - **Escaneo offline**: el código de pulsera se resuelve contra la caché local. El
   guía toca y ve el nombre al instante, sin una barra de señal.
 - **Bandeja de salida**: lo que no se puede enviar se encola con su hora y
@@ -104,7 +107,20 @@ SUPABASE_ANON_KEY: 'eyJhbG...',
 Vacíos, la plataforma corre en **modo local**: el flujo entero funciona pero los
 datos viven solo en ese navegador. Sirve para validar el recorrido antes de conectar.
 
-### 3. Cargar datos y salir
+### 3. Cuentas de acceso
+
+Guía y administración piden correo y contraseña; el alumno no, porque su QR es su
+única credencial. Las cuentas las crea el admin en **Supabase → Authentication →
+Users → Add user**. No hay registro público, a propósito.
+
+Después, en `admin.html`, crea el guía con **ese mismo correo** para que sus
+paradas y escaneos queden atribuidos.
+
+En modo local hay claves de prueba: `guia@demo` / `guia123` y `admin@demo` /
+`admin123`. Eso **no es seguridad**, solo sirve para recorrer el flujo sin base
+de datos.
+
+### 4. Cargar datos y salir
 
 En `admin.html`: colegio, grupos, guías, lista de alumnos y rango de pulseras.
 En `qr.html`: imprime los códigos. En `guia.html`: instala la app y **descarga el
@@ -154,11 +170,7 @@ pleno viaje por cambiar de teléfono, pero queda el rastro.
 
 ## Limitaciones conocidas
 
-- **Falta el login del guía.** El esquema ya distingue `anon` de `authenticated`,
-  pero la pantalla de acceso no está construida: hoy cualquiera con el enlace puede
-  abrir paradas. **Es lo siguiente a cerrar antes de usarlo con datos reales.**
-- **Abrir y cerrar parada necesitan conexión.** Se puede escanear y marcar sin señal,
-  pero la parada hay que abrirla donde haya cobertura.
+- **Cerrar una parada ya subida necesita conexión.** Abrirla sin señal sí funciona.
 - **iOS es más limitado:** no hay sincronización en segundo plano (sube al abrir la
   app) y el sistema puede borrar el almacenamiento de una PWA sin usar por semanas.
 - **Si el teléfono del guía muere**, se pierde lo no sincronizado.
@@ -191,6 +203,7 @@ assets/geo.js       GPS de precisión y formato
 assets/almacen.js   Caché de lectura y bandeja de salida
 assets/datos.js     Capa de datos: motor Supabase, motor local, local-first
 assets/escaner.js   Lector de QR por cámara
+assets/auth.js      Acceso de guías y administración
 sw.js               Service worker: la app abre sin señal
 manifest.json       Instalable en la pantalla de inicio
 backend/schema.sql  Postgres: tablas, funciones, RLS y realtime

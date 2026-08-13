@@ -592,6 +592,12 @@ tbody tr:last-child td { border-bottom: none; }
   margin-left: auto; display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
 }
 
+/* Pantalla de acceso: cubre la app entera hasta que hay sesion */
+.capa.acceso { background: var(--bg); backdrop-filter: none; }
+.capa.acceso .dialogo { max-width: 380px; }
+.capa.acceso label { margin-top: 16px; }
+.capa.acceso .acciones { margin-top: 24px; }
+
 .lista-encuadrada {
   border: 1px solid var(--border-soft); border-radius: var(--r-sm);
   margin-top: 14px; overflow: hidden;

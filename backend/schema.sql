@@ -75,9 +75,18 @@ create table if not exists guia (
   id        uuid primary key default gen_random_uuid(),
   nombre    text not null,
   codigo    text not null unique,
+  -- Correo con el que entra. Debe coincidir con el usuario creado
+  -- en Supabase → Authentication → Users. No hay registro publico:
+  -- las cuentas las da de alta el admin, a proposito.
+  email     text unique,
   activo    boolean not null default true,
   creado_en timestamptz not null default now()
 );
+
+alter table guia add column if not exists email text;
+do $$ begin
+  alter table guia add constraint guia_email_key unique (email);
+exception when duplicate_table or duplicate_object then null; end $$;
 
 create table if not exists grupo_guia (
   grupo_id uuid not null references grupo(id) on delete cascade,
@@ -420,11 +429,15 @@ grant execute on function registrar_pulsera(text, uuid, text) to anon, authentic
 grant execute on function marcar(text, double precision, double precision,
                                  integer, text, boolean, timestamptz, text, uuid)
                                                                   to anon, authenticated;
--- El guia todavia no tiene login: hasta que exista, abrir parada
--- va con anon. Es el hueco de seguridad conocido y documentado.
-grant execute on function abrir_parada(uuid, text, double precision,
-                                       double precision, integer, uuid)
-                                                                  to anon, authenticated;
+-- Abrir parada exige sesion iniciada: es la accion que decide donde
+-- y cuando cuenta la asistencia, y no puede quedar al alcance de
+-- cualquiera con el enlace. El alumno NO necesita login: marcar
+-- sigue abierto a anon, porque el QR es su unica credencial.
+revoke execute on function abrir_parada(uuid, text, double precision,
+                                        double precision, integer, uuid) from anon;
+grant  execute on function abrir_parada(uuid, text, double precision,
+                                        double precision, integer, uuid)
+                                                                  to authenticated;
 grant execute on function liberar_grupo(uuid)                     to authenticated;
 
 -- ------------------------------------------------------------

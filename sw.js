@@ -16,7 +16,7 @@
    haberla abierto nunca no tiene nada que cachear.
    ============================================================ */
 
-const VERSION = 'agps-v7';
+const VERSION = 'agps-v9';
 const CACHE = VERSION;
 
 const PROPIOS = [
@@ -34,6 +34,7 @@ const PROPIOS = [
   './assets/geo.js',
   './assets/almacen.js',
   './assets/datos.js',
+  './assets/auth.js',
   './assets/escaner.js',
   './assets/guia.js',
   './assets/marcar.js',

@@ -157,9 +157,11 @@
   $('btn-guia').addEventListener('click', () => {
     const nombre = $('in-guia-nombre').value.trim();
     const codigo = $('in-guia-codigo').value.trim().toUpperCase();
-    if (!nombre || !codigo) return alert('Escribe nombre y código del guía.');
-    conAviso(() => Datos.crearGuia({ nombre, codigo }), () => {
+    const email = $('in-guia-email').value.trim().toLowerCase();
+    if (!nombre || !codigo) return alert('Escribe al menos nombre y código del guía.');
+    conAviso(() => Datos.crearGuia({ nombre, codigo, email }), () => {
       $('in-guia-nombre').value = ''; $('in-guia-codigo').value = '';
+      $('in-guia-email').value = '';
       return `Guía "${nombre}" creado.`;
     });
   });
@@ -170,6 +172,7 @@
   /* ---------- arranque ---------- */
 
   (async function () {
+    await Auth.exigir('Acceso de administración');
     $('banner-demo').classList.toggle('oculto', !Datos.esDemo());
     try { await recargar(); }
     catch (e) {

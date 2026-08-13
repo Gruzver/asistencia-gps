@@ -153,10 +153,10 @@
       return d.guias.filter((g) => ids.includes(g.id) && g.activo);
     },
 
-    async crearGuia({ nombre, codigo }) {
+    async crearGuia({ nombre, codigo, email }) {
       const d = this._leer();
       if (d.guias.some((g) => g.codigo === codigo)) throw new ErrorDatos('CODIGO_REPETIDO');
-      const g = { id: uuid(), nombre, codigo, activo: true };
+      const g = { id: uuid(), nombre, codigo, email: email || null, activo: true };
       d.guias.push(g); this._guardar(d); return g;
     },
 
@@ -410,7 +410,7 @@
       return this._sel('grupo', 'id,nombre,colegio_id', f);
     },
 
-    async guias() { return this._sel('guia', 'id,nombre,codigo', { activo: true }); },
+    async guias() { return this._sel('guia', 'id,nombre,codigo,email', { activo: true }); },
 
     async guiasDe(grupoId) {
       const { data, error } = await this._init()
@@ -420,9 +420,9 @@
       return (data || []).map((r) => r.guia).filter((g) => g && g.activo);
     },
 
-    async crearGuia({ nombre, codigo }) {
+    async crearGuia({ nombre, codigo, email }) {
       const { data, error } = await this._init().from('guia')
-        .insert({ nombre, codigo }).select().single();
+        .insert({ nombre, codigo, email: email || null }).select().single();
       if (error) throw new ErrorDatos('CREAR_GUIA', error.message);
       return data;
     },
@@ -609,6 +609,9 @@
     esDemo: () => !usaRemoto,
     deviceId, distancia, ErrorDatos, esDefinitivo, fusionar, motorLocal: local,
 
+    /** Cliente de Supabase, para que Auth reuse la misma sesion. */
+    cliente: () => remoto._init(),
+
     /* --- lecturas cacheadas --- */
     colegios() { return conCache('colegios', () => motor.colegios(), []); },
     grupos(c)  { return conCache('grupos_' + (c || 'todos'), () => motor.grupos(c), []); },
@@ -629,9 +632,57 @@
     cargarRoster(x)  { return motor.cargarRoster(x); },
     cargarPulseras(x){ return motor.cargarPulseras(x); },
     liberarGrupo(x)  { return motor.liberarGrupo(x); },
-    cerrarParada(x)  { return motor.cerrarParada(x); },
-    abrirParada(x)   { return motor.abrirParada(x); },
     suscribir(p, cb) { return motor.suscribir(p, cb); },
+
+    esParadaLocal: (id) => typeof id === 'string' && id.startsWith('local-'),
+
+    /**
+     * Abre una parada. Si no hay red se crea una LOCAL con id de
+     * cliente y se encola: sin esto, llegar a un punto sin cobertura
+     * dejaba al guia sin poder tomar asistencia, que es justo donde
+     * mas falta hace.
+     *
+     * Al sincronizar, si otro guia ya habia abierto una parada para
+     * el grupo, se adopta la del servidor y los marcajes locales se
+     * reapuntan a ella. Nunca se crea una parada duplicada ni se
+     * pisa la del otro guia.
+     */
+    async abrirParada(x) {
+      try {
+        const r = await motor.abrirParada(x);
+        Cache.poner('parada_' + x.grupoId, r.parada);
+        return r;
+      } catch (e) {
+        if (esDefinitivo(e)) throw e;
+        const parada = {
+          id: 'local-' + uuid(), grupo_id: x.grupoId, nombre: x.nombre,
+          lat: x.lat, lon: x.lon, radio: x.radio || CFG.RADIO_DEFAULT,
+          abierta_por: x.guiaId || null,
+          abierta_en: new Date().toISOString(), cerrada_en: null, local: true,
+        };
+        Cache.poner('parada_' + x.grupoId, parada);
+        Bandeja.poner({
+          tipo: 'parada', llave: 'parada:' + parada.id,
+          paradaLocalId: parada.id,
+          datos: { grupoId: x.grupoId, nombre: x.nombre, lat: x.lat, lon: x.lon,
+                   radio: parada.radio, guiaId: x.guiaId },
+        });
+        return { creada: true, parada, local: true };
+      }
+    },
+
+    async cerrarParada(paradaId) {
+      if (API.esParadaLocal(paradaId)) {
+        // Todavia no existe en el servidor: se cierra en local y la
+        // sincronizacion la creara ya cerrada.
+        Bandeja.todas()
+          .filter((f) => f.tipo === 'parada' && f.paradaLocalId === paradaId)
+          .forEach((f) => Bandeja.poner(Object.assign({}, f, { cerrar: true })));
+        return { id: paradaId, cerrada_en: new Date().toISOString() };
+      }
+      const r = await motor.cerrarParada(paradaId);
+      return r;
+    },
 
     /**
      * Descarga todo lo que el guia necesita para operar sin señal.
@@ -679,8 +730,22 @@
 
     /** Progreso del servidor mezclado con lo pendiente de subir. */
     async progreso(paradaId) {
-      const base = await conCache('prog_' + paradaId, () => motor.progreso(paradaId),
-                                  { parada: null, alumnos: [], marcajes: [] });
+      let base;
+      if (API.esParadaLocal(paradaId)) {
+        // Parada que aun no existe en el servidor: se arma entera
+        // desde la cache y la bandeja.
+        const op = Bandeja.todas().find(
+          (f) => f.tipo === 'parada' && f.paradaLocalId === paradaId);
+        const grupoId = op ? op.datos.grupoId : null;
+        base = {
+          parada: Cache.sacar('parada_' + grupoId),
+          alumnos: Cache.sacar('alumnos_' + grupoId) || [],
+          marcajes: [],
+        };
+      } else {
+        base = await conCache('prog_' + paradaId, () => motor.progreso(paradaId),
+                              { parada: null, alumnos: [], marcajes: [] });
+      }
       const pendientes = Bandeja.de('marcaje')
         .filter((o) => o.paradaId === paradaId)
         .map((o) => o.optimista);
@@ -702,6 +767,12 @@
      * optimista para que la pantalla del guia avance igual.
      */
     async marcar(datos) {
+      // Si la parada todavia es local, el servidor no la conoce:
+      // intentarlo daria SIN_PARADA_ABIERTA, que es un error
+      // definitivo y tiraria el escaneo. Se encola directamente y
+      // la sincronizacion lo reapuntara a la parada real.
+      if (API.esParadaLocal(datos.paradaId)) return encolarMarcaje(datos, null);
+
       try {
         return await motor.marcar(datos);
       } catch (e) {
@@ -719,29 +790,94 @@
       }
     },
 
-    /** Sube todo lo pendiente. Seguro de llamar en cualquier momento. */
+    /**
+     * Sube todo lo pendiente. Seguro de llamar en cualquier momento.
+     *
+     * Las paradas van PRIMERO: los marcajes tomados sin señal
+     * apuntan a un id local que todavia no existe en el servidor, y
+     * hasta que la parada suba no hay donde colgarlos.
+     */
     async sincronizar() {
       if (!navigator.onLine) return { subidos: 0, quedan: Bandeja.todas().length };
-      const filas = Bandeja.todas();
-      let subidos = 0;
-      const quedan = [];
-      for (const f of filas) {
-        try {
-          await motor.marcar(f.datos);
-          subidos++;
-        } catch (e) {
-          f.intentos = (f.intentos || 0) + 1;
-          f.ultimoError = (e && e.codigo) || 'RED';
-          if (!esDefinitivo(e) && f.intentos < 25) quedan.push(f);
+      if (sincronizando) return { subidos: 0, quedan: Bandeja.todas().length };
+      sincronizando = true;
+
+      try {
+        let subidos = 0;
+        const adoptadas = [];
+
+        // --- 1. Paradas ---
+        for (const f of Bandeja.todas().filter((x) => x.tipo === 'parada')) {
+          try {
+            const r = await motor.abrirParada(f.datos);
+            const real = r.parada;
+
+            // Otro guia se adelanto: se adopta la suya y los
+            // marcajes locales se reapuntan, en vez de duplicar.
+            remapear(f.paradaLocalId, real.id);
+            Cache.poner('parada_' + f.datos.grupoId, real);
+            if (f.cerrar) { try { await motor.cerrarParada(real.id); } catch (e) {} }
+
+            adoptadas.push({ localId: f.paradaLocalId, real, ajena: r.creada === false });
+            Bandeja.quitar(f.id);
+            subidos++;
+          } catch (e) {
+            const g = Bandeja.todas().find((x) => x.id === f.id);
+            if (g) {
+              g.intentos = (g.intentos || 0) + 1;
+              g.ultimoError = (e && e.codigo) || 'RED';
+              if (esDefinitivo(e) || g.intentos >= 25) Bandeja.quitar(g.id);
+              else Bandeja.poner(g);
+            }
+          }
         }
+
+        // --- 2. Marcajes ---
+        const quedan = [];
+        for (const f of Bandeja.todas().filter((x) => x.tipo === 'marcaje')) {
+          try {
+            await motor.marcar(f.datos);
+            subidos++;
+          } catch (e) {
+            f.intentos = (f.intentos || 0) + 1;
+            f.ultimoError = (e && e.codigo) || 'RED';
+            if (!esDefinitivo(e) && f.intentos < 25) quedan.push(f);
+          }
+        }
+        Bandeja.reemplazar(
+          Bandeja.todas().filter((x) => x.tipo !== 'marcaje').concat(quedan));
+
+        return { subidos, quedan: Bandeja.todas().length, adoptadas };
+      } finally {
+        sincronizando = false;
       }
-      Bandeja.reemplazar(quedan);
-      return { subidos, quedan: quedan.length };
     },
 
     pendientes: () => Bandeja.todas().length,
     alCambiarPendientes: (fn) => Bandeja.alCambiar(fn),
   };
+
+  let sincronizando = false;
+
+  /**
+   * Reapunta los marcajes encolados de una parada local a la que
+   * el servidor acabo asignando. Es lo que evita perder los
+   * escaneos hechos sin señal cuando otro guia ya habia abierto la
+   * parada por su cuenta.
+   */
+  function remapear(idLocal, idReal) {
+    if (!idLocal || idLocal === idReal) return;
+    const filas = Bandeja.todas().map((f) => {
+      if (f.tipo !== 'marcaje' || f.paradaId !== idLocal) return f;
+      return Object.assign({}, f, {
+        paradaId: idReal,
+        llave: idReal + ':' + (f.optimista ? f.optimista.alumno_id : ''),
+        datos: Object.assign({}, f.datos, { paradaId: idReal }),
+        optimista: Object.assign({}, f.optimista, { parada_id: idReal }),
+      });
+    });
+    Bandeja.reemplazar(filas);
+  }
 
   function encolarMarcaje(datos, err) {
     const cache = Cache.sacar('pulseras') || [];

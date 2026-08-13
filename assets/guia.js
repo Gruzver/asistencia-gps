@@ -252,12 +252,13 @@
       if (r && r.creada === false) {
         alert('Ya había una parada abierta para este grupo:\n\n' +
               r.parada.nombre + '\n\nTe uniste a ella.');
+      } else if (r && r.local) {
+        alert('Parada abierta sin señal.\n\nPuedes escanear con normalidad. ' +
+              'Todo se subirá solo cuando vuelva la cobertura.');
       }
       await cargarGrupo(grupoId);
     } catch (e) {
-      alert('No se pudo abrir la parada.\n\n' +
-            (navigator.onLine ? (e.message || e.codigo)
-                              : 'Sin señal: abrir una parada necesita conexión.'));
+      alert('No se pudo abrir la parada.\n\n' + (e.message || e.codigo));
     } finally {
       btn.disabled = false; btn.textContent = 'Abrir parada';
     }
@@ -375,6 +376,10 @@
   /* ---------- arranque ---------- */
 
   async function iniciar() {
+    // Abrir y cerrar paradas exige sesion; marcar no, porque el QR
+    // es la unica credencial del alumno.
+    await Auth.exigir('Acceso para guías');
+
     $('banner-demo').classList.toggle('oculto', !Datos.esDemo());
     pintarRed();
 
@@ -404,7 +409,19 @@
 
     setInterval(refrescar, CONFIG.REFRESCO_PANEL);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) refrescar(); });
-    window.addEventListener('online', () => { pintarRed(); refrescar(); });
+    window.addEventListener('online', async () => {
+      pintarRed();
+      const r = await Datos.sincronizar();
+      // Si la parada local acabo fundiendose con la de otro guia,
+      // hay que recargar: los marcajes cambiaron de parada.
+      const adoptada = (r.adoptadas || []).find((a) => a.ajena);
+      if (adoptada) {
+        alert('Al recuperar señal se encontró que otro guía ya había abierto\n"' +
+              adoptada.real.nombre + '".\n\nTus escaneos se guardaron en esa parada.');
+      }
+      if (r.adoptadas && r.adoptadas.length) await cargarGrupo(grupoId);
+      else refrescar();
+    });
     window.addEventListener('offline', pintarRed);
     Datos.alCambiarPendientes(pintarRed);
   }
@@ -420,6 +437,13 @@
   $('btn-cerrar-escaner').addEventListener('click', cerrarEscaner);
   $('btn-yo').addEventListener('click', abrirDialogoYo);
   $('btn-yo-cerrar').addEventListener('click', () => $('dlg-yo').classList.add('oculta'));
+  $('btn-salir').addEventListener('click', () => {
+    if (Datos.pendientes()) {
+      if (!confirm('Quedan ' + Datos.pendientes() + ' marcajes por subir.\n\n' +
+                   'Si cierras sesión ahora podrías perderlos. ¿Continuar?')) return;
+    }
+    Auth.salir();
+  });
 
   $('in-nombre').addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !$('btn-confirmar-parada').disabled) confirmarParada();
