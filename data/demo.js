@@ -19,7 +19,7 @@ window.DEMO_DATA = {
     { id: 'NFC001', nombre: 'Ana Lucia Ramirez Soto',      seccion: '5A', activo: true },
     { id: 'NFC002', nombre: 'Brenda Sofia Quispe Loayza',  seccion: '5A', activo: true },
     { id: 'NFC003', nombre: 'Carla Daniela Mendoza Rios',  seccion: '5A', activo: true },
-    { id: 'NFC004', nombre: 'Diana Paola Ccahuana Vera',   seccion: '5A', activo: true },
+    { id: 'NFC004', nombre: 'Diana Paola Escalante Vera',  seccion: '5A', activo: true },
     { id: 'NFC005', nombre: 'Elena Mariana Torres Puma',   seccion: '5A', activo: true },
     { id: 'NFC006', nombre: 'Fiorella Nicole Ayala Cruz',  seccion: '5A', activo: true },
     { id: 'NFC007', nombre: 'Gabriela Rocio Salas Nina',   seccion: '5A', activo: true },
