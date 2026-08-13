@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#ffffff">
+<meta name="color-scheme" content="light">
+<title>Panel del guía</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="assets/style.css?v=7">
+</head>
+<body>
+
+<header class="barra">
+  <div class="marca"><span class="punto" id="punto-vivo"></span> Guía</div>
+  <div class="barra-centro">
+    <select id="sel-grupo" aria-label="Grupo"></select>
+  </div>
+  <nav>
+    <a href="admin.html">Admin</a>
+    <a href="qr.html">QR</a>
+  </nav>
+</header>
+
+<div id="banner-demo" class="aviso info envoltura-plana oculto">
+  <span>●</span>
+  <span><strong>Modo local.</strong> Los datos viven solo en este navegador.
+    Conecta Supabase en <code>config.js</code> para usarlo en campo.</span>
+</div>
+
+<main class="envoltura">
+
+  <!-- Sin parada abierta -->
+  <section id="v-inactivo" class="oculto">
+    <div class="panel-vacio">
+      <div class="icono neutro">📍</div>
+      <h2>Sin parada abierta</h2>
+      <p>Cuando llegues a un punto, abre una parada y el grupo podrá marcar.</p>
+      <button class="boton primario grande" id="btn-abrir">Tomar asistencia</button>
+      <div id="ultima-parada" class="nota"></div>
+    </div>
+  </section>
+
+  <!-- Parada activa -->
+  <section id="v-activo" class="oculto">
+
+    <div class="cabecera-parada">
+      <div>
+        <div class="etiqueta-mini">Parada activa</div>
+        <h1 id="parada-nombre">--</h1>
+        <div class="nota" id="parada-info">--</div>
+      </div>
+      <button class="boton" id="btn-cerrar">Cerrar parada</button>
+    </div>
+
+    <div class="marcador-grande">
+      <div class="contador">
+        <span id="c-marcados">0</span><span class="de">/</span><span id="c-total">0</span>
+      </div>
+      <div class="barra-progreso"><span id="progreso"></span></div>
+      <div class="resumen-chips">
+        <span class="insignia ok"      id="chip-zona">0 en zona</span>
+        <span class="insignia fuera"   id="chip-fuera">0 lejos</span>
+        <span class="insignia neutra"  id="chip-faltan">0 faltan</span>
+      </div>
+    </div>
+
+    <div class="rejilla">
+      <div class="panel">
+        <header>
+          <h2>Faltan por marcar</h2>
+          <div class="der"><span class="nota" id="pie-faltan"></span></div>
+        </header>
+        <div class="tabla-scroll" style="max-height:420px">
+          <ul class="lista-personas" id="lista-faltan"></ul>
+          <div class="vacio oculto" id="faltan-vacio">Todos marcaron ✓</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <header>
+          <h2>Ya marcaron</h2>
+          <div class="der"><button class="boton chico" id="btn-centrar">Centrar mapa</button></div>
+        </header>
+        <div class="tabla-scroll" style="max-height:420px">
+          <ul class="lista-personas" id="lista-marcados"></ul>
+          <div class="vacio oculto" id="marcados-vacio">Nadie ha marcado aún.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:18px">
+      <header><h2>Mapa</h2></header>
+      <div id="mapa"></div>
+    </div>
+  </section>
+</main>
+
+<!-- Diálogo: abrir parada -->
+<div class="capa oculta" id="dlg-abrir">
+  <div class="dialogo">
+    <h2>Nueva parada</h2>
+    <p class="sub">Se usará tu ubicación actual como centro del punto.</p>
+
+    <label>Nombre del lugar</label>
+    <input type="text" id="in-nombre" placeholder="Ej. Mirador de Yanahuara"
+           autocomplete="off">
+
+    <label>Radio permitido</label>
+    <div class="opciones-radio" id="opciones-radio">
+      <button data-r="100">100 m</button>
+      <button data-r="150" class="activo">150 m</button>
+      <button data-r="300">300 m</button>
+      <button data-r="500">500 m</button>
+    </div>
+
+    <div class="estado-gps" id="dlg-gps">
+      <div class="girador chico"></div>
+      <span>Buscando tu ubicación…</span>
+    </div>
+
+    <div class="acciones">
+      <button class="boton" id="btn-cancelar">Cancelar</button>
+      <button class="boton primario" id="btn-confirmar-parada" disabled>Abrir parada</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js?v=7"></script>
+<script src="assets/geo.js?v=7"></script>
+<script src="assets/datos.js?v=7"></script>
+<script src="assets/guia.js?v=7"></script>
+</body>
+</html>

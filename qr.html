@@ -7,54 +7,56 @@
 <meta name="theme-color" content="#ffffff">
 <meta name="color-scheme" content="light">
 <title>Códigos QR</title>
-<link rel="stylesheet" href="assets/style.css?v=6">
+<link rel="stylesheet" href="assets/style.css?v=7">
 </head>
 <body>
 
 <header class="barra">
-  <div class="marca"><span class="punto"></span> <span id="titulo-evento">Asistencia GPS</span></div>
+  <div class="marca"><span class="punto"></span> Códigos QR</div>
   <nav>
-    <a href="index.html">Panel</a>
-    <a href="qr.html" class="activo">Códigos QR</a>
+    <a href="guia.html">Guía</a>
+    <a href="admin.html">Admin</a>
   </nav>
 </header>
 
-<div class="envoltura">
+<main class="envoltura">
 
   <div class="aviso info no-imprimir">
     <span>◈</span>
-    <span>Cada QR abre la página de marcaje con el código de esa persona.
-      Imprime esta hoja y recorta, o pega cada código en su credencial.
-      <strong>Usa "Imprimir" para obtener el PDF.</strong></span>
+    <span>Un QR por <strong>pulsera</strong>, no por alumno: la pulsera es física
+      y se reutiliza entre viajes. Imprime, recorta y pega cada código en su
+      pulsera. Quien la reciba se identifica al escanearla por primera vez.</span>
   </div>
 
   <div class="panel no-imprimir" style="margin-bottom:18px">
     <header>
-      <h2>Configuración</h2>
+      <h2>Rango a imprimir</h2>
       <div class="der">
-        <select id="f-seccion"><option value="">Todas las secciones</option></select>
         <button class="boton" id="btn-imprimir">Imprimir</button>
       </div>
     </header>
-    <div style="padding:15px 17px">
-      <label style="font-size:.8rem;color:var(--text-2);font-weight:500;display:block;margin-bottom:7px">
-        URL base de la plataforma
-      </label>
+    <div class="cuerpo">
+      <div class="fila-form">
+        <input type="number" id="in-desde" value="1" min="1" style="max-width:120px" aria-label="Desde">
+        <input type="number" id="in-hasta" value="40" min="1" style="max-width:120px" aria-label="Hasta">
+        <button class="boton" id="btn-aplicar">Aplicar</button>
+        <span class="nota" id="cuenta"></span>
+      </div>
+      <label style="margin-top:14px">URL base de la plataforma</label>
       <input type="text" id="url-base" style="width:100%;font-family:var(--mono);font-size:.78rem">
-      <p style="font-size:.78rem;color:var(--text-3);margin:9px 0 0">
-        Se detecta sola. Cámbiala solo si vas a imprimir para otro despliegue.
-      </p>
+      <p class="nota">Se detecta sola. Cámbiala solo si imprimes para otro despliegue.</p>
     </div>
   </div>
 
   <div class="rejilla-qr" id="rejilla"></div>
 
-</div>
+</main>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="config.js?v=6"></script>
-<script src="data/demo.js?v=6"></script>
-<script src="assets/api.js?v=6"></script>
-<script src="assets/qr.js?v=6"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js?v=7"></script>
+<script src="assets/geo.js?v=7"></script>
+<script src="assets/datos.js?v=7"></script>
+<script src="assets/qr.js?v=7"></script>
 </body>
 </html>

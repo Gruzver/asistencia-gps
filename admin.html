@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#ffffff">
+<meta name="color-scheme" content="light">
+<title>Administración</title>
+<link rel="stylesheet" href="assets/style.css?v=7">
+</head>
+<body>
+
+<header class="barra">
+  <div class="marca"><span class="punto"></span> Administración</div>
+  <nav>
+    <a href="guia.html">Guía</a>
+    <a href="qr.html">QR</a>
+  </nav>
+</header>
+
+<main class="envoltura estrecha">
+
+  <div id="banner-demo" class="aviso info oculto">
+    <span>●</span>
+    <span><strong>Modo local.</strong> Todo lo que crees aquí vive solo en este
+      navegador. Conecta Supabase en <code>config.js</code> para compartirlo.</span>
+  </div>
+
+  <!-- Colegios y grupos -->
+  <div class="panel">
+    <header><h2>Colegios y grupos</h2></header>
+    <div class="cuerpo">
+      <div class="fila-form">
+        <input type="text" id="in-colegio" placeholder="Nombre del colegio">
+        <button class="boton" id="btn-colegio">Crear colegio</button>
+      </div>
+      <div class="fila-form">
+        <select id="sel-colegio"></select>
+        <input type="text" id="in-grupo" placeholder="Grupo (ej. 5A)">
+        <button class="boton" id="btn-grupo">Crear grupo</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lista de alumnos -->
+  <div class="panel">
+    <header>
+      <h2>Lista de alumnos</h2>
+      <div class="der"><select id="sel-grupo-roster"></select></div>
+    </header>
+    <div class="cuerpo">
+      <p class="nota">Pega la lista, un nombre por línea. El alumno elegirá
+        el suyo al activar su pulsera — así los nombres quedan idénticos a
+        los del colegio, sin erratas.</p>
+      <textarea id="in-roster" rows="7"
+                placeholder="María Fernanda Rojas Lima&#10;Juan Carlos Pérez Soto&#10;…"></textarea>
+      <div class="acciones-fila">
+        <span class="nota" id="cuenta-roster"></span>
+        <button class="boton primario" id="btn-roster">Cargar alumnos</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pulseras -->
+  <div class="panel">
+    <header><h2>Pulseras</h2></header>
+    <div class="cuerpo">
+      <p class="nota">Solo se pueden activar pulseras dadas de alta aquí.
+        Eso corta el atajo de adivinar números correlativos.</p>
+      <div class="fila-form">
+        <input type="text" id="in-prefijo" placeholder="Prefijo" value="PL" style="max-width:110px">
+        <input type="number" id="in-desde" placeholder="Desde" value="1" min="1" style="max-width:110px">
+        <input type="number" id="in-hasta" placeholder="Hasta" value="40" min="1" style="max-width:110px">
+        <button class="boton" id="btn-pulseras">Generar rango</button>
+      </div>
+      <div class="nota" id="cuenta-pulseras"></div>
+    </div>
+  </div>
+
+  <!-- Estado del grupo -->
+  <div class="panel">
+    <header>
+      <h2>Estado del grupo</h2>
+      <div class="der">
+        <select id="sel-grupo-estado"></select>
+        <button class="boton" id="btn-liberar">Liberar pulseras</button>
+      </div>
+    </header>
+    <div class="tabla-scroll" style="max-height:420px">
+      <table>
+        <thead><tr><th>Alumno</th><th>Pulsera</th><th>Estado</th></tr></thead>
+        <tbody id="cuerpo-estado"></tbody>
+      </table>
+      <div class="vacio oculto" id="estado-vacio">Este grupo no tiene alumnos cargados.</div>
+    </div>
+  </div>
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js?v=7"></script>
+<script src="assets/geo.js?v=7"></script>
+<script src="assets/datos.js?v=7"></script>
+<script src="assets/admin.js?v=7"></script>
+</body>
+</html>

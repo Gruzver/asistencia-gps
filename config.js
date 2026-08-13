@@ -1,34 +1,41 @@
 /* ============================================================
    CONFIGURACION
-   Para pasar de DEMO a REAL: pega abajo la URL /exec de tu
-   Apps Script. Si queda vacia, la plataforma corre en modo
-   DEMO con datos anonimos (no toca tu hoja real).
+
+   Con SUPABASE_URL vacio la plataforma corre en MODO LOCAL: todo
+   el flujo funciona (registro, paradas, marcaje, tiempo real
+   entre pestañas) pero los datos viven solo en este navegador.
+   Sirve para validar el recorrido antes de crear la cuenta.
+
+   Para conectar de verdad, pega abajo los dos valores de
+   Supabase → Project Settings → API.
    ============================================================ */
 window.CONFIG = {
-  // Ej: 'https://script.google.com/macros/s/AKfy.../exec'
-  API_URL: '',
+  // Ej: 'https://abcdefgh.supabase.co'
+  SUPABASE_URL: '',
+  // La clave "anon public". Es publica por diseño: la seguridad
+  // real la imponen las politicas RLS del esquema.
+  SUPABASE_ANON_KEY: '',
 
-  // Metros de tolerancia por defecto si el lugar no define radio propio
+  // Metros de tolerancia por defecto al abrir una parada
   RADIO_DEFAULT: 150,
 
-  // Milisegundos que se insiste esperando que el GPS fije satelites.
-  // No es un plazo de fallo: es cuanto se sigue escuchando lecturas
-  // cada vez mejores antes de quedarse con la mejor lograda.
+  // Milisegundos que se insiste esperando que el GPS fije
+  // satelites. No es un plazo de fallo: es cuanto se sigue
+  // escuchando lecturas cada vez mejores.
   GPS_TIMEOUT: 25000,
 
-  // Precision (m) con la que se corta de inmediato: es una lectura
-  // de satelite y no vale la pena seguir esperando.
+  // Precision (m) con la que se corta de inmediato: ya es
+  // lectura de satelite y no vale la pena seguir esperando.
   PRECISION_OBJETIVO: 30,
 
-  // Por encima de esto la lectura se considera de antena o wifi y el
-  // marcaje se rechaza. Una posicion de antena puede errar kilometros.
+  // Por encima de esto la lectura viene de antena o wifi y el
+  // marcaje se rechaza: puede errar kilometros.
   PRECISION_MAXIMA: 150,
 
-  // Refresco automatico del panel (ms)
-  REFRESCO_PANEL: 30000,
+  // Respaldo del panel del guia por si cae el websocket
+  REFRESCO_PANEL: 20000,
 
-  // Nombre visible del evento/viaje
-  EVENTO: 'ASUNTA CUSCO',
+  EVENTO: 'Asistencia GPS',
 };
 
-window.CONFIG.DEMO = !window.CONFIG.API_URL;
+window.CONFIG.DEMO = !window.CONFIG.SUPABASE_URL;

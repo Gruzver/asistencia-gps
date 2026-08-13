@@ -7,55 +7,83 @@
 <meta name="theme-color" content="#ffffff">
 <meta name="color-scheme" content="light">
 <title>Marcar asistencia</title>
-<link rel="stylesheet" href="assets/style.css?v=6">
+<link rel="stylesheet" href="assets/style.css?v=7">
 </head>
-<body>
+<body class="pantalla-alumno">
 
 <main class="marcaje">
   <div class="tarjeta-marcaje">
 
-    <!-- 1. Cargando datos de la persona -->
-    <section id="paso-carga">
-      <div class="icono esperando"><div class="girador"></div></div>
-      <h1>Cargando…</h1>
-      <p class="sub">Verificando tu registro</p>
+    <div id="chip-pulsera" class="chip-pulsera oculto"></div>
+
+    <!-- Cargando -->
+    <section id="p-carga">
+      <div class="icono neutro"><div class="girador"></div></div>
+      <h1>Un momento…</h1>
+      <p class="sub">Leyendo tu pulsera</p>
     </section>
 
-    <!-- 2. Consentimiento previo -->
-    <section id="paso-consentimiento" class="oculto">
-      <div class="evento" id="c-evento"></div>
-      <h1 id="c-nombre"></h1>
-      <p class="sub" id="c-seccion"></p>
+    <!-- REGISTRO: colegio -->
+    <section id="p-colegio" class="oculto">
+      <div class="paso">Paso 1 de 3</div>
+      <h1>¿De qué colegio eres?</h1>
+      <p class="sub">Solo la primera vez. Después nunca más.</p>
+      <div class="lista-opciones" id="lista-colegios"></div>
+    </section>
 
-      <div class="datos-fila">
-        <span class="k">Lugar</span><span class="v" id="c-lugar"></span>
-      </div>
-      <div class="datos-fila">
-        <span class="k">Fecha</span><span class="v" id="c-fecha"></span>
-      </div>
+    <!-- REGISTRO: grupo -->
+    <section id="p-grupo" class="oculto">
+      <div class="paso">Paso 2 de 3</div>
+      <h1>¿Cuál es tu grupo?</h1>
+      <p class="sub" id="grupo-colegio"></p>
+      <div class="lista-opciones" id="lista-grupos"></div>
+      <button class="boton texto" data-volver="p-colegio">Atrás</button>
+    </section>
+
+    <!-- REGISTRO: nombre -->
+    <section id="p-nombre" class="oculto">
+      <div class="paso">Paso 3 de 3</div>
+      <h1>Busca tu nombre</h1>
+      <p class="sub" id="nombre-grupo"></p>
+      <input type="search" id="buscar-nombre" placeholder="Escribe para filtrar…"
+             autocomplete="off" autocapitalize="words">
+      <div class="lista-opciones alta" id="lista-nombres"></div>
+      <button class="boton texto" data-volver="p-grupo">Atrás</button>
+    </section>
+
+    <!-- REGISTRO: confirmar -->
+    <section id="p-confirmar" class="oculto">
+      <div class="icono neutro">👋</div>
+      <h1 id="conf-nombre"></h1>
+      <p class="sub" id="conf-grupo"></p>
 
       <div class="consentimiento">
-        Al marcar se registrará <strong>tu ubicación GPS</strong> junto con la hora,
-        para confirmar que estuviste en el punto de encuentro. El dato se usa solo
-        para el control de asistencia de este viaje y lo ve únicamente el personal
-        a cargo.
+        Esta pulsera quedará <strong>ligada a ti y a este teléfono</strong> durante
+        todo el viaje. No podrás cambiarla ni pasársela a otra persona.<br><br>
+        Al marcar en cada parada se registrará tu <strong>ubicación GPS</strong>,
+        solo para confirmar que estás con el grupo. La ve únicamente el guía.
       </div>
 
-      <button class="boton primario grande" id="btn-marcar">
-        Permitir ubicación y marcar
+      <button class="boton primario grande" id="btn-confirmar">
+        Sí, soy yo — activar pulsera
       </button>
-      <p class="sub" style="margin:12px 0 0;font-size:.76rem">
-        Tu teléfono te pedirá confirmar el permiso.
-      </p>
+      <button class="boton texto" data-volver="p-nombre">No soy yo, volver</button>
     </section>
 
-    <!-- 3. Obteniendo GPS -->
-    <section id="paso-gps" class="oculto">
-      <div class="icono esperando"><div class="girador"></div></div>
-      <h1>Buscando satélites…</h1>
-      <p class="sub">Mantén el teléfono quieto y a cielo abierto.<br>
-        La primera lectura es imprecisa y va mejorando.</p>
+    <!-- Listo para marcar -->
+    <section id="p-listo" class="oculto">
+      <div class="icono neutro">📍</div>
+      <h1 id="listo-parada"></h1>
+      <p class="sub" id="listo-nombre"></p>
+      <button class="boton primario grande" id="btn-marcar">Marcar mi asistencia</button>
+      <p class="nota">Se pedirá permiso de ubicación.</p>
+    </section>
 
+    <!-- Buscando GPS -->
+    <section id="p-gps" class="oculto">
+      <div class="icono neutro"><div class="girador"></div></div>
+      <h1>Buscando satélites…</h1>
+      <p class="sub">Mantén el teléfono quieto y a cielo abierto.</p>
       <div class="medidor">
         <div class="medidor-barra"><span id="gps-barra"></span></div>
         <div class="medidor-pie">
@@ -65,35 +93,45 @@
       </div>
     </section>
 
-    <!-- 4. Exito -->
-    <section id="paso-ok" class="oculto">
+    <!-- Marcado -->
+    <section id="p-ok" class="oculto">
       <div class="icono bueno">✓</div>
-      <h1>Asistencia registrada</h1>
+      <h1 id="ok-titulo">Listo</h1>
       <p class="sub" id="ok-nombre"></p>
-
-      <div class="datos-fila"><span class="k">Lugar</span><span class="v" id="ok-lugar"></span></div>
-      <div class="datos-fila"><span class="k">Hora</span><span class="v" id="ok-hora"></span></div>
-      <div class="datos-fila"><span class="k">Distancia al punto</span><span class="v" id="ok-distancia"></span></div>
-      <div class="datos-fila"><span class="k">Precisión GPS</span><span class="v" id="ok-precision"></span></div>
-
-      <div id="ok-zona" style="margin-top:18px"></div>
+      <div class="datos" id="ok-datos"></div>
+      <div id="ok-zona"></div>
     </section>
 
-    <!-- 5. Error -->
-    <section id="paso-error" class="oculto">
+    <!-- Sin parada abierta -->
+    <section id="p-espera" class="oculto">
+      <div class="icono neutro">⏳</div>
+      <h1>Aún no toca marcar</h1>
+      <p class="sub" id="espera-nombre"></p>
+      <div class="consentimiento">
+        El guía todavía no ha abierto una parada. Cuando lo haga,
+        vuelve a escanear tu pulsera.
+      </div>
+      <button class="boton grande" id="btn-revisar">Revisar de nuevo</button>
+    </section>
+
+    <!-- Error -->
+    <section id="p-error" class="oculto">
       <div class="icono malo" id="e-icono">!</div>
-      <h1 id="e-titulo">No se pudo marcar</h1>
+      <h1 id="e-titulo">No se pudo</h1>
       <p class="sub" id="e-mensaje"></p>
       <div id="e-ayuda" class="consentimiento oculto"></div>
       <button class="boton primario grande" id="btn-reintentar">Reintentar</button>
     </section>
 
+    <div id="aviso-cola" class="pie-cola oculto"></div>
   </div>
 </main>
 
-<script src="config.js?v=6"></script>
-<script src="data/demo.js?v=6"></script>
-<script src="assets/api.js?v=6"></script>
-<script src="assets/marcar.js?v=6"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js?v=7"></script>
+<script src="assets/geo.js?v=7"></script>
+<script src="assets/datos.js?v=7"></script>
+<script src="assets/cola.js?v=7"></script>
+<script src="assets/marcar.js?v=7"></script>
 </body>
 </html>

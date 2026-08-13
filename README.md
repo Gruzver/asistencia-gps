@@ -1,162 +1,167 @@
 # Asistencia GPS
 
-Plataforma web de control de asistencia por QR con registro de ubicación.
-Sustituye el flujo de hoja de cálculo por una interfaz propia: la alumna
-escanea su código, el navegador captura su posición GPS y el panel muestra
-en un mapa desde dónde marcó cada persona.
+Plataforma de control de asistencia para viajes escolares. Cada alumno lleva una
+**pulsera con QR**; el guía abre una **parada** al llegar a un punto y ve en vivo
+quién marca, quién falta y quién marcó lejos.
 
-**Demo en vivo:** ver la URL de GitHub Pages en la pestaña *Settings → Pages*
-del repositorio.
-
-> La demo pública corre con **datos ficticios**. Ningún nombre, documento ni
-> ubicación de este repositorio corresponde a una persona real.
+**Demo:** https://gruzver.github.io/asistencia-gps/ — corre en modo local con datos
+de prueba, sin tocar ninguna base de datos.
 
 ---
 
-## Cómo funciona
+## Idea central
+
+La **pulsera es física y eterna**; el **alumno es temporal**. Esa separación es lo
+que permite reutilizar las pulseras entre viajes sin perder el historial: al cerrar
+un viaje se liberan y quedan listas para el siguiente grupo.
 
 ```
-QR de la alumna
-      │  marcar.html?id=NFC001
-      ▼
-GitHub Pages (frontend estático)
-      │  GET /exec?action=marcar&nfc=…&lat=…&lon=…
-      ▼
-Apps Script (API JSON)
-      │  appendRow
-      ▼
-Google Sheets (almacén)
+colegio → grupo → alumno ──┐
+                            ├── marcaje ── parada
+pulsera (código fijo) ─────┘
 ```
 
-El frontend es HTML y JavaScript sin dependencias ni compilación. El backend
-es el mismo Apps Script que ya usabas, ampliado para hablar JSON y guardar
-coordenadas.
-
 ---
 
-## Páginas
+## Los tres roles
 
-| Página | Para quién | Qué hace |
-|---|---|---|
-| `index.html` | Personal a cargo | Mapa de marcajes, métricas, tabla filtrable, lista de pendientes, exportar CSV |
-| `marcar.html?id=NFC001` | Alumna | Consentimiento, captura de GPS y confirmación |
-| `qr.html` | Personal a cargo | Genera e imprime los QR de cada persona |
+### Alumno
 
----
+Escanea el QR de su pulsera. Nada que instalar, nada que recordar.
 
-## Reglas de negocio
+- **Primera vez:** elige colegio → grupo → su nombre de la lista → confirma.
+  Tres toques. La pulsera queda ligada a esa identidad y a ese teléfono.
+- **Siguientes:** ve el nombre de la parada activa y marca. Si ya marcó, se lo dice.
 
-**Sin ubicación no hay asistencia.** Si la alumna deniega el permiso de
-geolocalización, el marcaje se bloquea y se muestran instrucciones para
-reactivarlo según su navegador (iOS, Android u otro).
+### Guía
 
-**La geocerca avisa, no bloquea.** Se calcula la distancia entre la posición
-de la alumna y el punto del lugar activo. Si supera el radio configurado, el
-marcaje **se registra igual** pero queda señalado en rojo como `FUERA_ZONA`
-para que el personal lo revise. El radio se define por lugar en la pestaña
-`Lugares`; si falta, se usa `RADIO_DEFAULT` de `config.js` (150 m).
+Una pantalla, un botón. Está cuidando cuarenta chicos, no mirando el teléfono.
+
+1. **Tomar asistencia** → usa su propia ubicación como centro de la parada
+2. Escribe el nombre del lugar y elige el radio
+3. Ve el contador `23/40` crecer solo, sin refrescar
+4. Lista de **quién falta**, con botón para marcar a mano a quien no tenga batería
+5. **Cerrar parada** cuando el grupo se mueve
+
+### Administración
+
+Antes del viaje: colegios, grupos, listas de alumnos y alta de pulseras.
+Después: **Liberar pulseras** las devuelve al stock conservando los marcajes.
 
 ---
 
 ## Puesta en marcha
 
-### 1. Backend (Apps Script)
+### 1. Base de datos
 
-1. Abre tu hoja → **Extensiones → Apps Script**
-2. Pega el contenido de [`backend/Codigo.gs`](backend/Codigo.gs), reemplazando lo que haya
-3. Ejecuta la función **`prepararHoja`** una vez y autoriza los permisos
-   - Agrega a `Asistencia` las columnas `Lat`, `Lon`, `Precision`, `Distancia`, `Estado`
-   - Agrega a `Lugares` las columnas `Lat`, `Lon`, `Radio` y siembra las coordenadas conocidas
-   - Te avisa qué lugares quedaron sin coordenadas
-4. **Implementar → Nueva implementación → Aplicación web**
-   - Ejecutar como: **Yo**
-   - Quién tiene acceso: **Cualquier persona**
-5. Copia la URL que termina en `/exec`
+1. Crea un proyecto en [supabase.com](https://supabase.com) (gratis)
+2. SQL Editor → pega [`backend/schema.sql`](backend/schema.sql) completo → Run
+3. Project Settings → API → copia **Project URL** y la clave **anon public**
 
-### 2. Frontend
+### 2. Conectar
 
-Pega esa URL en [`config.js`](config.js):
+En [`config.js`](config.js):
 
 ```js
-API_URL: 'https://script.google.com/macros/s/AKfy.../exec',
+SUPABASE_URL: 'https://xxxxx.supabase.co',
+SUPABASE_ANON_KEY: 'eyJhbG...',
 ```
 
-Con ese campo vacío la plataforma corre en modo demo y no toca la hoja real.
+Con esos campos vacíos la plataforma corre en **modo local**: el flujo entero
+funciona (registro, paradas, marcaje, tiempo real entre pestañas) pero los datos
+viven solo en ese navegador. Sirve para validar el recorrido antes de conectar.
 
-### 3. Coordenadas de los lugares
+### 3. Cargar datos
 
-`prepararHoja` siembra Plaza de Armas, Mirador de Yanahuara y Cañón del Colca.
-Para los demás, párate en el sitio, abre `marcar.html` y usa las coordenadas
-que reporte tu teléfono, o sácalas de Google Maps (clic derecho → copiar
-coordenadas). Un lugar sin coordenadas registra el marcaje con estado
-`SIN_REFERENCIA` y no valida distancia.
+En `admin.html`: crea el colegio y los grupos, pega la lista de alumnos y genera
+el rango de pulseras que tengas.
 
-### 4. Códigos QR
+### 4. Imprimir
 
-Abre `qr.html`, verifica la URL base detectada y usa **Imprimir**.
-
-Las etiquetas NFC y QR **ya impresas siguen funcionando**: apuntan a
-`/exec?nfc=NFC001` y el script las redirige a la plataforma para que pasen por
-el flujo con GPS. Para activarlo, edita `configurarURLPlataforma` en el Apps
-Script poniendo tu URL de GitHub Pages y ejecútala una vez.
+En `qr.html`: elige el rango e imprime. Un QR por pulsera.
 
 ---
 
-## Configuración
+## Decisiones de diseño
 
-Todo en [`config.js`](config.js):
+**Sin ubicación no hay asistencia, y sin precisión de satélite tampoco.**
+`getCurrentPosition` devuelve la primera lectura disponible, que casi siempre viene
+de antena de telefonía: llega en un segundo y puede errar kilómetros. Se usa
+`watchPosition`, se conserva la mejor lectura y se corta al bajar de 30 m. Por
+encima de 150 m se rechaza, porque registrar una posición de antena acusaría de
+"fuera de zona" a alguien que sí estaba presente.
 
-| Campo | Por defecto | Qué hace |
-|---|---|---|
-| `API_URL` | `''` | URL `/exec` del Apps Script. Vacío = modo demo |
-| `RADIO_DEFAULT` | `150` | Metros de tolerancia si el lugar no define radio |
-| `GPS_TIMEOUT` | `25000` | Milisegundos que se insiste esperando que el GPS fije satélites |
-| `PRECISION_OBJETIVO` | `30` | Precisión (m) con la que se corta de inmediato |
-| `PRECISION_MAXIMA` | `150` | Por encima de esto se rechaza: es lectura de antena, no de GPS |
-| `REFRESCO_PANEL` | `30000` | Cada cuánto se recarga el panel |
-| `EVENTO` | `'ASUNTA CUSCO'` | Nombre visible del viaje |
+**La geocerca avisa, no bloquea.** El GPS bajo techo se degrada a 50–100 m; un radio
+estricto rechazaría a quien sí está. El marcaje se registra y queda señalado en rojo
+para que el guía decida.
 
-Para cambiar el lugar activo, edita `LUGAR_ACTUAL` en la pestaña
-`Configuracion` de la hoja. El panel lo toma en el siguiente refresco.
+**La distancia la calcula el servidor.** El cliente solo envía coordenadas. Así nadie
+puede declararse "en zona" manipulando la petición.
+
+**Sin señal, el marcaje se encola.** En el Cañón del Colca no hay cobertura. El GPS
+funciona igual —los satélites no necesitan internet— pero enviar no. El marcaje se
+guarda con su hora y coordenadas reales y sube solo al recuperar señal: si alguien
+marca a las 10:00 en el Colca y sincroniza a las 14:00, la asistencia dice 10:00.
+
+**Una sola parada abierta por grupo.** Lo impone un índice único en la base. El
+alumno nunca tiene que elegir a cuál marca, y el guía no puede dejar dos vivas.
+
+---
+
+## Atajos y defensas
+
+| Atajo | Defensa |
+|---|---|
+| Mandar el QR por WhatsApp | La pulsera queda atada al teléfono del registro |
+| Prestar la pulsera física | Dos pulseras desde el mismo teléfono quedan señaladas |
+| App de GPS falso | Se exige precisión de satélite; el guía ve los patrones raros |
+| DevTools en la laptop | El escritorio no da precisión de satélite: se rechaza |
+| Adivinar números de pulsera | Solo se activan pulseras dadas de alta por el admin |
+| Borrar datos y re-registrarse | El bloqueo vive en la base, no en el navegador |
+| Marcar antes de llegar | Solo cuenta dentro de la parada que abre el guía |
+
+El bloqueo por dispositivo **avisa pero no bloquea**: a nadie se le deja fuera en
+pleno viaje por cambiar de teléfono, pero queda el rastro.
 
 ---
 
 ## Limitaciones conocidas
 
-- **El GPS no puede capturarse en silencio.** El navegador exige que la persona
-  acepte el permiso; no existe forma de evitarlo, y es intencional del estándar.
-- **Precisión variable.** 5–20 m al aire libre; bajo techo o entre edificios
-  altos puede degradarse a 50–100 m. Por eso la geocerca avisa en vez de
-  bloquear.
-- **Requiere HTTPS.** GitHub Pages ya lo provee. En local usa `localhost`,
-  que el navegador trata como origen seguro.
-- **El código de la URL es legible.** Alguien que conozca el formato puede
-  intentar marcar por otra persona; la geocerca y el registro de precisión
-  limitan el margen, pero no lo eliminan. Ver *Siguientes pasos*.
-- **Apps Script tiene cuotas.** El plan gratuito soporta holgadamente decenas
-  de marcajes por minuto, suficiente para un grupo de este tamaño.
+- **El GPS no puede capturarse en silencio.** El navegador exige aceptar el permiso.
+- **La clave anon es pública.** La seguridad real la imponen las políticas RLS del
+  esquema: anónimo solo puede leer el catálogo y llamar a las funciones de registro
+  y marcaje, que validan por dentro. Crear paradas o grupos exige sesión autenticada.
+- **Falta el login del guía.** El esquema ya distingue `anon` de `authenticated`,
+  pero la pantalla de acceso no está construida: hoy cualquiera con el enlace puede
+  abrir paradas. Es lo siguiente a cerrar antes de usarlo con datos reales.
+- **El vínculo con el dispositivo se pierde** si el alumno borra los datos del sitio.
+- **NFC no está integrado todavía.** Por ahora solo QR.
 
 ---
 
 ## Protección de datos
 
-La plataforma registra ubicación de menores de edad, lo que en Perú cae bajo
-la **Ley 29733 de Protección de Datos Personales**. El diseño incluye:
-
-- Pantalla de consentimiento explícita antes de pedir el permiso
-- `noindex, nofollow` en todas las páginas
-- Datos reales solo en el backend privado, nunca en este repositorio
-- Exportación CSV para que el responsable conserve y luego purgue los registros
-
-Queda a cargo de la institución obtener el **consentimiento informado de los
-padres o tutores** antes de usarlo con datos reales, y definir por cuánto
-tiempo se conservan los registros.
+Registra ubicación de menores, lo que en Perú cae bajo la **Ley 29733**. El diseño
+incluye consentimiento explícito antes de pedir el permiso, `noindex` en todas las
+páginas, y liberación de perfiles al cerrar el viaje. Obtener el **consentimiento
+de los padres o tutores** y definir el plazo de conservación queda a cargo de la
+institución.
 
 ---
 
-## Siguientes pasos posibles
+## Estructura
 
-- Token firmado por persona en la URL, para que el código no sea adivinable
-- Selector de lugar activo desde el propio panel, sin abrir la hoja
-- Modo quiosco: un QR rotatorio en el punto de encuentro en vez de uno por persona
-- Historial por día con comparación entre lugares
+```
+index.html        Portada con los tres roles
+marcar.html       Alumno: registro y marcaje
+guia.html         Guía: paradas, contador en vivo, mapa
+admin.html        Colegios, grupos, listas, pulseras
+qr.html           Impresión de códigos
+
+assets/geo.js     GPS de precisión y formato
+assets/datos.js   Capa de datos: motor Supabase y motor local
+assets/cola.js    Cola de marcajes sin señal
+backend/schema.sql  Postgres: tablas, funciones, RLS y realtime
+```
+
+Sin compilación ni dependencias que instalar: HTML y JavaScript directos.

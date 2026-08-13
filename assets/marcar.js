@@ -1,122 +1,202 @@
 /* ============================================================
-   Flujo de marcaje desde el QR.
+   Pantalla del alumno.
 
-   Politica configurada: sin GPS NO hay asistencia. Si el
-   permiso se deniega el marcaje se bloquea y se muestran las
-   instrucciones para reactivarlo segun el navegador.
+   Dos recorridos segun el estado de la pulsera:
+
+   · Sin registrar → colegio, grupo, nombre, confirmacion. Tres
+     toques y ninguna escritura obligatoria. Al confirmar, la
+     pulsera queda atada a esa identidad y a ese telefono.
+   · Registrada → directo a marcar la parada abierta.
+
+   Sin ubicacion no hay asistencia, y sin precision de satelite
+   tampoco: registrar una lectura de antena acusaria de "fuera de
+   zona" a quien si estaba presente.
    ============================================================ */
 (function () {
   'use strict';
 
   const $ = (id) => document.getElementById(id);
-  const pasos = ['paso-carga', 'paso-consentimiento', 'paso-gps', 'paso-ok', 'paso-error'];
+  const PASOS = ['p-carga', 'p-colegio', 'p-grupo', 'p-nombre', 'p-confirmar',
+                 'p-listo', 'p-gps', 'p-ok', 'p-espera', 'p-error'];
 
-  function mostrar(id) {
-    pasos.forEach((p) => $(p).classList.toggle('oculto', p !== id));
+  function ir(id) {
+    PASOS.forEach((p) => $(p).classList.toggle('oculto', p !== id));
+    window.scrollTo(0, 0);
   }
 
-  function error(titulo, mensaje, ayuda) {
+  function fallo(titulo, mensaje, ayuda) {
     $('e-titulo').textContent = titulo;
     $('e-mensaje').textContent = mensaje;
-    const cajaAyuda = $('e-ayuda');
-    if (ayuda) {
-      cajaAyuda.innerHTML = ayuda;
-      cajaAyuda.classList.remove('oculto');
-    } else {
-      cajaAyuda.classList.add('oculto');
-    }
-    mostrar('paso-error');
+    const a = $('e-ayuda');
+    if (ayuda) { a.innerHTML = ayuda; a.classList.remove('oculto'); }
+    else a.classList.add('oculto');
+    ir('p-error');
   }
 
-  /* Instrucciones por navegador para reactivar el permiso. */
-  function ayudaPermiso() {
-    const ua = navigator.userAgent;
-    if (/iPhone|iPad|iPod/i.test(ua)) {
-      return (
-        '<strong>Para activarlo en iPhone:</strong><br>' +
-        '1. Ajustes → Privacidad y seguridad → Localización<br>' +
-        '2. Verifica que esté activada<br>' +
-        '3. Busca Safari → "Al usar la app"<br>' +
-        '4. Vuelve aquí y toca Reintentar'
-      );
-    }
-    if (/Android/i.test(ua)) {
-      return (
-        '<strong>Para activarlo en Android:</strong><br>' +
-        '1. Toca el candado 🔒 junto a la dirección web<br>' +
-        '2. Permisos → Ubicación → Permitir<br>' +
-        '3. Recarga y toca Reintentar'
-      );
-    }
-    return (
-      '<strong>Para activarlo:</strong> toca el icono junto a la dirección ' +
-      'web, permite el acceso a la ubicación y recarga la página.'
-    );
-  }
-
+  /* Acepta ?p=PL001 y los formatos antiguos ?id= y ?nfc= */
   const params = new URLSearchParams(location.search);
-  // Acepta ?id=NFC001 y tambien ?nfc=NFC001 (formato del sistema anterior)
-  const id = (params.get('id') || params.get('nfc') || '').trim().toUpperCase();
+  const codigo = (params.get('p') || params.get('id') || params.get('nfc') || '')
+    .trim().toUpperCase();
 
-  let contexto = null;
+  const est = { alumno: null, grupo: null, colegio: null, parada: null, roster: [] };
+
+  /* ---------- lista de opciones reutilizable ---------- */
+
+  function pintarOpciones(contenedor, items, alElegir) {
+    contenedor.innerHTML = '';
+    if (!items.length) {
+      contenedor.innerHTML = '<p class="vacio-mini">No hay opciones disponibles.</p>';
+      return;
+    }
+    items.forEach((it) => {
+      const b = document.createElement('button');
+      b.className = 'opcion';
+      b.innerHTML = `<span>${it.nombre}</span><span class="flecha">›</span>`;
+      b.addEventListener('click', () => alElegir(it));
+      contenedor.appendChild(b);
+    });
+  }
+
+  /* ---------- arranque ---------- */
 
   async function iniciar() {
-    if (!id) {
-      return error(
-        'Código faltante',
-        'Este enlace no incluye un código de identificación.',
-        'Escanea de nuevo tu código QR. Si el problema sigue, avisa al personal a cargo.'
-      );
+    if (!codigo) {
+      return fallo('Pulsera no identificada',
+        'Este enlace no trae el código de la pulsera.',
+        'Vuelve a escanear el QR. Si sigue igual, avisa al guía.');
     }
 
-    mostrar('paso-carga');
+    $('chip-pulsera').textContent = 'Pulsera ' + codigo;
+    $('chip-pulsera').classList.remove('oculto');
+    ir('p-carga');
+
     try {
-      const r = await API.persona(id);
-      if (!r.ok) {
-        return error(
-          'Código no reconocido',
-          `El código ${id} no está registrado en este evento.`,
-          'Verifica que sea tu código. Si es el correcto, avisa al personal para registrarte.'
-        );
+      const r = await Datos.pulsera(codigo);
+      if (!r.existe) {
+        return fallo('Pulsera no reconocida',
+          `La pulsera ${codigo} no está dada de alta en el sistema.`,
+          'Avisa al guía para que la registre.');
       }
-      contexto = r;
-
-      $('c-evento').textContent = CONFIG.EVENTO;
-      $('c-nombre').textContent = r.persona.nombre;
-      $('c-seccion').textContent = r.persona.seccion ? `Sección ${r.persona.seccion}` : '';
-      $('c-lugar').textContent = r.lugar ? r.lugar.nombre : '--';
-      $('c-fecha').textContent = Utils.fechaHoy();
-
-      if (r.yaMarco) {
-        $('btn-marcar').textContent = 'Ya marcaste hoy — marcar otra vez';
-        $('btn-marcar').classList.remove('primario');
+      if (r.alumno) {
+        est.alumno = r.alumno;
+        est.grupo = r.grupo;
+        return revisarParada();
       }
-      mostrar('paso-consentimiento');
+      // Sin dueño: arranca el registro
+      const colegios = await Datos.colegios();
+      pintarOpciones($('lista-colegios'), colegios, (c) => elegirColegio(c));
+      ir('p-colegio');
     } catch (e) {
-      error('Sin conexión', e.message, 'Revisa tu conexión a internet y toca Reintentar.');
+      fallo('Sin conexión', e.message,
+        'Revisa tu internet y toca Reintentar.');
     }
   }
 
-  /** Pinta en vivo cuanto ha mejorado la lectura de GPS. */
-  function progresoGPS(lectura) {
-    const p = lectura.precision;
-    // Escala logaritmica: de 2000 m (0%) a 10 m (100%)
+  /* ---------- registro ---------- */
+
+  async function elegirColegio(c) {
+    est.colegio = c;
+    $('grupo-colegio').textContent = c.nombre;
+    try {
+      const grupos = await Datos.grupos(c.id);
+      pintarOpciones($('lista-grupos'), grupos, (g) => elegirGrupo(g));
+      ir('p-grupo');
+    } catch (e) { fallo('No se pudo cargar', e.message); }
+  }
+
+  async function elegirGrupo(g) {
+    est.grupo = g;
+    $('nombre-grupo').textContent = `${est.colegio.nombre} · ${g.nombre}`;
+    try {
+      est.roster = await Datos.rosterLibre(g.id);
+      if (!est.roster.length) {
+        return fallo('Grupo completo',
+          'Ya no quedan nombres libres en este grupo.',
+          'Puede que hayas elegido el grupo equivocado, o que alguien ' +
+          'haya tomado tu nombre por error. Avisa al guía.');
+      }
+      $('buscar-nombre').value = '';
+      filtrarNombres();
+      ir('p-nombre');
+      setTimeout(() => $('buscar-nombre').focus(), 250);
+    } catch (e) { fallo('No se pudo cargar', e.message); }
+  }
+
+  function filtrarNombres() {
+    const q = $('buscar-nombre').value.trim().toLowerCase();
+    const lista = q
+      ? est.roster.filter((a) => a.nombre.toLowerCase().includes(q))
+      : est.roster;
+    pintarOpciones($('lista-nombres'), lista, (a) => {
+      est.candidato = a;
+      $('conf-nombre').textContent = a.nombre;
+      $('conf-grupo').textContent = `${est.colegio.nombre} · ${est.grupo.nombre}`;
+      ir('p-confirmar');
+    });
+  }
+
+  async function confirmar() {
+    const btn = $('btn-confirmar');
+    btn.disabled = true;
+    btn.textContent = 'Activando…';
+    try {
+      est.alumno = await Datos.registrar({
+        codigo, alumnoId: est.candidato.id,
+      });
+      await revisarParada();
+    } catch (e) {
+      const msg = {
+        PULSERA_YA_ASIGNADA: 'Esta pulsera ya fue activada por otra persona.',
+        ALUMNO_YA_REGISTRADO: 'Ese nombre ya tiene una pulsera activa.',
+        PULSERA_DESCONOCIDA: 'La pulsera no está dada de alta.',
+      }[e.codigo] || e.message;
+      fallo('No se pudo activar', msg, 'Avisa al guía para resolverlo.');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Sí, soy yo — activar pulsera';
+    }
+  }
+
+  /* ---------- marcaje ---------- */
+
+  async function revisarParada() {
+    try {
+      const parada = await Datos.paradaAbierta(est.alumno.grupo_id);
+      if (!parada) {
+        $('espera-nombre').textContent = est.alumno.nombre;
+        return ir('p-espera');
+      }
+      est.parada = parada;
+
+      const { marcajes } = await Datos.progreso(parada.id);
+      const mio = marcajes.find((m) => m.alumno_id === est.alumno.id);
+      if (mio) return mostrarHecho(mio, true);
+
+      $('listo-parada').textContent = parada.nombre;
+      $('listo-nombre').textContent = est.alumno.nombre;
+      ir('p-listo');
+    } catch (e) {
+      fallo('No se pudo consultar', e.message);
+    }
+  }
+
+  function progresoGPS(l) {
+    const p = l.precision;
     const pct = Math.max(0, Math.min(100,
-      ((Math.log10(2000) - Math.log10(Math.max(p, 10))) / (Math.log10(2000) - 1)) * 100
-    ));
+      ((Math.log10(2000) - Math.log10(Math.max(p, 10))) /
+       (Math.log10(2000) - 1)) * 100));
     const barra = $('gps-barra');
     barra.style.width = pct.toFixed(0) + '%';
     barra.classList.toggle('bien', p <= CONFIG.PRECISION_MAXIMA);
-
-    $('gps-precision').textContent = `precisión ± ${Utils.metros(p)}`;
+    $('gps-precision').textContent = 'precisión ± ' + Geo.metros(p);
     const chip = $('gps-estado');
-    if (p <= CONFIG.PRECISION_OBJETIVO)      { chip.className = 'insignia ok';     chip.textContent = 'GPS fijo'; }
-    else if (p <= CONFIG.PRECISION_MAXIMA)   { chip.className = 'insignia ok';     chip.textContent = 'aceptable'; }
-    else                                      { chip.className = 'insignia fuera';  chip.textContent = 'aún por antena'; }
+    if (p <= CONFIG.PRECISION_OBJETIVO)    { chip.className = 'insignia ok'; chip.textContent = 'GPS fijo'; }
+    else if (p <= CONFIG.PRECISION_MAXIMA) { chip.className = 'insignia ok'; chip.textContent = 'aceptable'; }
+    else                                   { chip.className = 'insignia fuera'; chip.textContent = 'aún por antena'; }
   }
 
   async function marcar() {
-    mostrar('paso-gps');
+    ir('p-gps');
     $('gps-barra').style.width = '0';
     $('gps-barra').classList.remove('bien');
     $('gps-precision').textContent = 'esperando primera lectura…';
@@ -125,95 +205,117 @@
 
     let pos;
     try {
-      pos = await Utils.obtenerUbicacion(progresoGPS);
+      pos = await Geo.ubicacion(progresoGPS);
     } catch (g) {
-      // Politica: sin ubicacion no se registra la asistencia.
       if (g.codigo === 'PERMISO_DENEGADO') {
-        return error(
-          'Ubicación bloqueada',
-          'No podemos registrar tu asistencia sin tu ubicación.',
-          ayudaPermiso()
-        );
+        return fallo('Ubicación bloqueada',
+          'Sin tu ubicación no se puede registrar la asistencia.',
+          Geo.ayudaPermiso());
       }
-      if (g.codigo === 'TIEMPO_AGOTADO') {
-        return error(
-          'GPS tardó demasiado',
-          'No se pudo obtener una lectura a tiempo.',
-          'Sal a un espacio abierto, aleja el teléfono de paredes y toca Reintentar.'
-        );
-      }
-      if (g.codigo === 'SIN_HTTPS') {
-        return error('Conexión no segura', g.mensaje, null);
-      }
-      return error(
-        'Ubicación no disponible',
-        'Tu dispositivo no pudo determinar dónde estás.',
-        'Verifica que el GPS esté encendido y toca Reintentar.'
-      );
+      if (g.codigo === 'SIN_HTTPS') return fallo('Conexión no segura', g.mensaje);
+      return fallo('GPS no disponible',
+        'Tu teléfono no pudo determinar dónde estás.',
+        'Verifica que la ubicación esté encendida, sal a cielo abierto ' +
+        'y toca Reintentar.');
     }
 
-    // Una lectura de antena puede errar kilometros: registrarla
-    // ensuciaria el mapa y acusaria de "fuera de zona" a alguien que
-    // si estaba presente. Mejor rechazar y pedir reintento.
     if (!pos.fiable) {
-      return error(
-        'Ubicación imprecisa',
-        `La mejor lectura fue de ± ${Utils.metros(pos.precision)}, ` +
-          'que viene de antena de telefonía y no del GPS.',
-        (Utils.pareceEscritorio()
-          ? '<strong>Estás en una computadora.</strong> No tiene GPS: ' +
-            'calcula la posición por tu conexión a internet y puede errar ' +
-            'kilómetros.<br><br>Abre este enlace <strong>en el celular</strong>.'
+      return fallo('Ubicación imprecisa',
+        `La mejor lectura fue de ± ${Geo.metros(pos.precision)}, que viene de ` +
+        'antena y no del GPS.',
+        Geo.pareceEscritorio()
+          ? '<strong>Estás en una computadora.</strong> No tiene GPS: calcula ' +
+            'la posición por tu conexión y puede errar kilómetros.<br><br>' +
+            'Abre este enlace <strong>en el celular</strong>.'
           : '<strong>Para lograr señal de GPS:</strong><br>' +
-            '1. Sal a un espacio abierto, sin techo encima<br>' +
-            '2. Activa la ubicación en modo "Alta precisión"<br>' +
+            '1. Sal a un espacio abierto, sin techo<br>' +
+            '2. Activa la ubicación en "Alta precisión"<br>' +
             '3. Espera unos segundos sin moverte<br>' +
-            '4. Toca Reintentar')
-      );
+            '4. Toca Reintentar');
     }
 
+    const captura = new Date().toISOString();
     try {
-      const r = await API.marcar({
-        nfc: id,
-        lat: pos.lat,
-        lon: pos.lon,
-        precision: pos.precision,
+      const r = await Datos.marcar({
+        codigo, lat: pos.lat, lon: pos.lon,
+        precision: pos.precision, capturado_en: captura,
       });
-      if (!r.ok) return error('No se pudo registrar', r.error || 'Error desconocido');
-
-      $('ok-nombre').textContent = r.persona.nombre;
-      $('ok-lugar').textContent = r.lugar.nombre;
-      $('ok-hora').textContent = r.registro.hora;
-      $('ok-distancia').textContent = Utils.metros(r.distancia);
-      $('ok-precision').textContent = `± ${pos.precision} m`;
-
-      // Geocerca: se registra siempre, solo se avisa.
-      const zona = $('ok-zona');
-      if (r.dentroZona) {
-        zona.className = 'aviso bueno';
-        zona.innerHTML = '<span>✓</span><span>Estás dentro de la zona del punto de encuentro.</span>';
-      } else {
-        zona.className = 'aviso info';
-        zona.innerHTML =
-          '<span>⚠</span><span><strong>Fuera de la zona.</strong> Tu asistencia quedó ' +
-          'registrada, pero marcaste a ' + Utils.metros(r.distancia) +
-          ' del punto. El personal lo verá señalado.</span>';
-      }
-
-      if (pos.precision > CONFIG.PRECISION_OBJETIVO) {
-        zona.innerHTML +=
-          '<br><small>Lectura de ± ' + Utils.metros(pos.precision) +
-          '. La distancia puede variar en ese margen.</small>';
-      }
-
-      mostrar('paso-ok');
+      mostrarHecho(r.marcaje, false, pos);
     } catch (e) {
-      error('No se pudo registrar', e.message, 'Toca Reintentar.');
+      if (e.codigo === 'SIN_PARADA_ABIERTA') {
+        $('espera-nombre').textContent = est.alumno.nombre;
+        return ir('p-espera');
+      }
+      // Sin red: se guarda y se sube al recuperar señal. El GPS ya
+      // se capturo, que es lo que no se puede recuperar despues.
+      Cola.encolar({
+        codigo, lat: pos.lat, lon: pos.lon,
+        precision: pos.precision, capturado_en: captura,
+      });
+      $('ok-titulo').textContent = 'Guardado sin señal';
+      $('ok-nombre').textContent = est.alumno.nombre;
+      $('ok-datos').innerHTML = fila('Parada', est.parada ? est.parada.nombre : '--') +
+                                fila('Hora', Geo.horaSeg(captura)) +
+                                fila('Precisión', '± ' + Geo.metros(pos.precision));
+      const z = $('ok-zona');
+      z.className = 'aviso info';
+      z.innerHTML = '<span>◷</span><span><strong>Aquí no hay cobertura.</strong> ' +
+        'Tu marcaje quedó guardado con esta hora y ubicación, y se enviará ' +
+        'solo en cuanto vuelva la señal. No hace falta que hagas nada.</span>';
+      ir('p-ok');
     }
   }
 
+  const fila = (k, v) => `<div class="dato"><span>${k}</span><b>${v}</b></div>`;
+
+  function mostrarHecho(m, previo, pos) {
+    $('ok-titulo').textContent = previo ? 'Ya marcaste aquí' : 'Asistencia registrada';
+    $('ok-nombre').textContent = est.alumno.nombre;
+    $('ok-datos').innerHTML =
+      fila('Parada', est.parada ? est.parada.nombre : '--') +
+      fila('Hora', Geo.horaSeg(m.creado_en)) +
+      fila('Distancia', Geo.metros(m.distancia_m)) +
+      (m.precision_m ? fila('Precisión', '± ' + Geo.metros(m.precision_m)) : '');
+
+    const z = $('ok-zona');
+    if (m.estado === 'FUERA_ZONA') {
+      z.className = 'aviso info';
+      z.innerHTML = '<span>⚠</span><span><strong>Estás lejos del punto.</strong> ' +
+        'Tu marcaje quedó registrado a ' + Geo.metros(m.distancia_m) +
+        ' del grupo. Acércate: el guía lo está viendo.</span>';
+    } else if (m.estado === 'EN_ZONA') {
+      z.className = 'aviso bueno';
+      z.innerHTML = '<span>✓</span><span>Estás con el grupo.</span>';
+    } else {
+      z.className = '';
+      z.innerHTML = '';
+    }
+    ir('p-ok');
+  }
+
+  /* ---------- cola pendiente ---------- */
+
+  Cola.alCambiar(function (n) {
+    const c = $('aviso-cola');
+    if (!n) return c.classList.add('oculto');
+    c.textContent = n === 1
+      ? '1 marcaje esperando señal para enviarse'
+      : `${n} marcajes esperando señal para enviarse`;
+    c.classList.remove('oculto');
+  });
+
+  /* ---------- eventos ---------- */
+
+  document.querySelectorAll('[data-volver]').forEach((b) => {
+    b.addEventListener('click', () => ir(b.dataset.volver));
+  });
+  $('buscar-nombre').addEventListener('input', filtrarNombres);
+  $('btn-confirmar').addEventListener('click', confirmar);
   $('btn-marcar').addEventListener('click', marcar);
-  $('btn-reintentar').addEventListener('click', () => (contexto ? marcar() : iniciar()));
+  $('btn-revisar').addEventListener('click', revisarParada);
+  $('btn-reintentar').addEventListener('click', () => {
+    if (est.alumno) revisarParada(); else iniciar();
+  });
 
   iniciar();
 })();
