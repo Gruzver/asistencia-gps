@@ -8,7 +8,7 @@
 <meta name="color-scheme" content="light">
 <link rel="icon" href="icon-192.png" type="image/png">
 <title>Códigos QR</title>
-<link rel="stylesheet" href="assets/style.css?v=13">
+<link rel="stylesheet" href="assets/style.css?v=14">
 </head>
 <body>
 
@@ -24,9 +24,26 @@
 
   <div class="aviso info no-imprimir">
     <span>◈</span>
-    <span>Un QR por <strong>pulsera</strong>, no por alumno: la pulsera es física
-      y se reutiliza entre viajes. Imprime, recorta y pega cada código en su
-      pulsera. Quien la reciba se identifica al escanearla por primera vez.</span>
+    <span>Si tus pulseras <strong>ya traen su propio QR con un número</strong>, no
+      necesitas imprimir nada de aquí: carga esos números en Administración y los
+      alumnos escanean su pulsera desde la app. Lo único que hay que imprimir es
+      el <strong>cartel de acceso</strong> de abajo.</span>
+  </div>
+
+  <div class="panel cartel">
+    <header class="no-imprimir">
+      <h2>Cartel de acceso</h2>
+      <div class="der"><button class="boton chico" id="btn-imprimir-cartel">Imprimir cartel</button></div>
+    </header>
+    <div class="cuerpo cartel-cuerpo">
+      <p class="nota no-imprimir">Este es el único QR que hay que imprimir. Va en
+        papel —en el bus, en el punto de encuentro, o en el teléfono del guía—,
+        así que puede ser grande y complejo sin problema. El alumno lo escanea una
+        vez para abrir la app; después la app ya recuerda su pulsera.</p>
+      <div id="qr-cartel"></div>
+      <div class="cartel-titulo">Asistencia del viaje</div>
+      <div class="cartel-sub">Escanea para abrir · luego escanea tu pulsera</div>
+    </div>
   </div>
 
   <div class="panel no-imprimir" style="margin-bottom:18px">
@@ -55,10 +72,10 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=13"></script>
-<script src="assets/geo.js?v=13"></script>
-<script src="assets/almacen.js?v=13"></script>
-<script src="assets/datos.js?v=13"></script>
-<script src="assets/qr.js?v=13"></script>
+<script src="config.js?v=14"></script>
+<script src="assets/geo.js?v=14"></script>
+<script src="assets/almacen.js?v=14"></script>
+<script src="assets/datos.js?v=14"></script>
+<script src="assets/qr.js?v=14"></script>
 </body>
 </html>

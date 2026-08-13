@@ -16,8 +16,9 @@
   'use strict';
 
   const $ = (id) => document.getElementById(id);
-  const PASOS = ['p-carga', 'p-colegio', 'p-grupo', 'p-nombre', 'p-confirmar',
-                 'p-listo', 'p-gps', 'p-ok', 'p-espera', 'p-error'];
+  const PASOS = ['p-carga', 'p-escanear', 'p-colegio', 'p-grupo', 'p-nombre',
+                 'p-confirmar', 'p-listo', 'p-gps', 'p-ok', 'p-espera', 'p-error'];
+  const RECORDADA = 'agps_mi_pulsera';
 
   function ir(id) {
     PASOS.forEach((p) => $(p).classList.toggle('oculto', p !== id));
@@ -33,10 +34,26 @@
     ir('p-error');
   }
 
-  /* Acepta ?p=PL001 y los formatos antiguos ?id= y ?nfc= */
+  /* De donde sale el codigo de la pulsera, en orden:
+     1. El enlace, si vino de un QR con URL (?p=, ?id=, ?nfc=)
+     2. La pulsera recordada de la ultima vez
+     3. La camara: el alumno escanea el numero impreso en su pulsera
+
+     La opcion 3 es la que importa en campo. Las pulseras traen un QR
+     con un numero suelto, y eso NO es una limitacion: un numero cabe
+     en un QR de 21x21 modulos mientras que una URL necesita 33x33,
+     lo que en una pulsera de 12 mm deja cada modulo por debajo del
+     tamaño que un movil lee con fiabilidad. El QR corto es el bueno;
+     lo que sobra es pretender que abra una web. */
   const params = new URLSearchParams(location.search);
-  const codigo = (params.get('p') || params.get('id') || params.get('nfc') || '')
+  let codigo = (params.get('p') || params.get('id') || params.get('nfc') || '')
     .trim().toUpperCase();
+
+  const recordar = (c) => { try { localStorage.setItem(RECORDADA, c); } catch (e) {} };
+  const olvidar = () => { try { localStorage.removeItem(RECORDADA); } catch (e) {} };
+  const recordada = () => {
+    try { return localStorage.getItem(RECORDADA) || ''; } catch (e) { return ''; }
+  };
 
   const est = { alumno: null, grupo: null, colegio: null, parada: null, roster: [] };
 
@@ -59,12 +76,46 @@
 
   /* ---------- arranque ---------- */
 
-  async function iniciar() {
-    if (!codigo) {
-      return fallo('Pulsera no identificada',
-        'Este enlace no trae el código de la pulsera.',
-        'Vuelve a escanear el QR. Si sigue igual, avisa al guía.');
+  let escaner = null;
+
+  /** Abre la camara para leer el numero impreso en la pulsera. */
+  async function escanearPulsera() {
+    ir('p-escanear');
+    $('esc-error').classList.add('oculto');
+
+    if (!escaner) {
+      escaner = new Escaner($('video'), $('lienzo'));
+      escaner.alLeer = function (texto) {
+        const leido = Escaner.codigoDe(texto);
+        if (!leido) {
+          $('esc-error').textContent = 'Ese código no se reconoce. Prueba otra vez.';
+          $('esc-error').classList.remove('oculto');
+          return;
+        }
+        escaner.detener();
+        codigo = leido;
+        recordar(codigo);
+        iniciar();
+      };
     }
+
+    try {
+      await escaner.iniciar();
+    } catch (e) {
+      const c = $('esc-error');
+      c.innerHTML = e.codigo === 'PERMISO_DENEGADO'
+        ? '<span>!</span><span>No diste permiso de cámara. Actívalo en los ajustes ' +
+          'del navegador, o escribe el número a mano.</span>'
+        : '<span>!</span><span>No se pudo abrir la cámara. Escribe el número a mano.</span>';
+      c.classList.remove('oculto');
+    }
+  }
+
+  async function iniciar() {
+    if (escaner) escaner.detener();
+
+    if (!codigo) codigo = recordada();
+    if (!codigo) return escanearPulsera();
 
     $('chip-pulsera').textContent = 'Pulsera ' + codigo;
     $('chip-pulsera').classList.remove('oculto');
@@ -73,10 +124,16 @@
     try {
       const r = await Datos.pulsera(codigo);
       if (!r.existe) {
+        // Puede ser un QR ajeno o un numero mal leido: se olvida para
+        // no dejar al alumno atrapado con un codigo invalido.
+        olvidar();
         return fallo('Pulsera no reconocida',
-          `La pulsera ${codigo} no está dada de alta en el sistema.`,
-          'Avisa al guía para que la registre.');
+          `El código ${codigo} no está dado de alta en el sistema.`,
+          'Comprueba que escaneaste tu pulsera. Si es la tuya, ' +
+          'avisa al guía para que la registre.');
       }
+      recordar(codigo);
+      $('btn-otra').classList.remove('oculto');
       if (r.alumno) {
         est.alumno = r.alumno;
         est.grupo = r.grupo;
@@ -317,6 +374,28 @@
   $('btn-revisar').addEventListener('click', revisarParada);
   $('btn-reintentar').addEventListener('click', () => {
     if (est.alumno) revisarParada(); else iniciar();
+  });
+
+  $('btn-manual').addEventListener('click', () => {
+    const n = prompt('Escribe el número que aparece en tu pulsera:');
+    if (!n || !n.trim()) return;
+    if (escaner) escaner.detener();
+    codigo = n.trim().toUpperCase();
+    recordar(codigo);
+    iniciar();
+  });
+
+  // Solo tiene sentido si alguien recibio una pulsera equivocada o
+  // se la cambiaron: vuelve a empezar desde la camara.
+  $('btn-otra').addEventListener('click', () => {
+    if (!confirm('¿Escanear otra pulsera?\n\n' +
+                 'Se olvidará la que tienes guardada en este teléfono.')) return;
+    olvidar();
+    codigo = '';
+    est.alumno = null;
+    $('chip-pulsera').classList.add('oculto');
+    $('btn-otra').classList.add('oculto');
+    escanearPulsera();
   });
 
   iniciar();

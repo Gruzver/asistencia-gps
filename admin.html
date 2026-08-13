@@ -8,7 +8,7 @@
 <meta name="color-scheme" content="light">
 <link rel="icon" href="icon-192.png" type="image/png">
 <title>Administración</title>
-<link rel="stylesheet" href="assets/style.css?v=13">
+<link rel="stylesheet" href="assets/style.css?v=14">
 </head>
 <body>
 
@@ -98,6 +98,15 @@
         <input type="number" id="in-hasta" placeholder="Hasta" value="40" min="1" style="max-width:110px">
         <button class="boton" id="btn-pulseras">Generar rango</button>
       </div>
+      <p class="nota" style="margin-top:16px">O pega los números tal como vienen
+        impresos en tus pulseras, uno por línea. Es lo normal cuando no son
+        correlativos.</p>
+      <textarea id="in-pulseras-lista" rows="5"
+                placeholder="10482&#10;10483&#10;10484&#10;…"></textarea>
+      <div class="acciones-fila">
+        <span class="nota" id="cuenta-lista"></span>
+        <button class="boton" id="btn-pulseras-lista">Cargar lista</button>
+      </div>
       <div class="nota" id="cuenta-pulseras"></div>
     </div>
   </div>
@@ -130,11 +139,11 @@
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=13"></script>
-<script src="assets/geo.js?v=13"></script>
-<script src="assets/almacen.js?v=13"></script>
-<script src="assets/datos.js?v=13"></script>
-<script src="assets/auth.js?v=13"></script>
-<script src="assets/admin.js?v=13"></script>
+<script src="config.js?v=14"></script>
+<script src="assets/geo.js?v=14"></script>
+<script src="assets/almacen.js?v=14"></script>
+<script src="assets/datos.js?v=14"></script>
+<script src="assets/auth.js?v=14"></script>
+<script src="assets/admin.js?v=14"></script>
 </body>
 </html>

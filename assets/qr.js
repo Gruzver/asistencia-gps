@@ -50,8 +50,21 @@
     });
   }
 
+  /** Un solo QR, grande y en papel, para abrir la aplicacion. */
+  function pintarCartel() {
+    const caja = $('qr-cartel');
+    caja.innerHTML = '';
+    new QRCode(caja, {
+      text: urlBase() + '/marcar.html',
+      width: 260, height: 260,
+      colorDark: '#000000', colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M,
+    });
+  }
+
   (async function () {
     $('url-base').value = location.href.replace(/\/[^/]*$/, '');
+    pintarCartel();
     try {
       pulseras = (await Datos.pulserasTodas())
         .filter((p) => p.activa !== false)
@@ -65,6 +78,11 @@
   })();
 
   $('btn-aplicar').addEventListener('click', pintar);
-  $('url-base').addEventListener('change', pintar);
+  $('url-base').addEventListener('change', () => { pintar(); pintarCartel(); });
+  $('btn-imprimir-cartel').addEventListener('click', () => {
+    document.body.classList.add('solo-cartel');
+    window.print();
+    setTimeout(() => document.body.classList.remove('solo-cartel'), 500);
+  });
   $('btn-imprimir').addEventListener('click', () => window.print());
 })();

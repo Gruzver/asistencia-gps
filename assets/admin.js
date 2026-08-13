@@ -203,6 +203,22 @@
              () => `${codigos.length} pulseras dadas de alta (${codigos[0]} … ${codigos[codigos.length - 1]}).`);
   });
 
+  $('in-pulseras-lista').addEventListener('input', () => {
+    const n = $('in-pulseras-lista').value.split('\n')
+      .map((x) => x.trim()).filter(Boolean).length;
+    $('cuenta-lista').textContent = n ? `${n} código${n === 1 ? '' : 's'} detectado${n === 1 ? '' : 's'}` : '';
+  });
+
+  $('btn-pulseras-lista').addEventListener('click', () => {
+    const codigos = [...new Set($('in-pulseras-lista').value.split('\n')
+      .map((x) => x.trim().toUpperCase()).filter(Boolean))];
+    if (!codigos.length) return alert('Pega al menos un número.');
+    conAviso(() => Datos.cargarPulseras(codigos), (n) => {
+      $('in-pulseras-lista').value = ''; $('cuenta-lista').textContent = '';
+      return `${n} pulseras dadas de alta.`;
+    });
+  });
+
   $('btn-liberar').addEventListener('click', () => {
     const gid = $('sel-grupo-estado').value;
     if (!gid) return;

@@ -10,7 +10,7 @@
 <title>Marcar asistencia</title>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="stylesheet" href="assets/style.css?v=13">
+<link rel="stylesheet" href="assets/style.css?v=14">
 </head>
 <body class="pantalla-alumno">
 
@@ -24,6 +24,23 @@
       <div class="icono neutro"><div class="girador"></div></div>
       <h1>Un momento…</h1>
       <p class="sub">Leyendo tu pulsera</p>
+    </section>
+
+    <!-- Escanear la pulsera con la camara -->
+    <section id="p-escanear" class="oculto">
+      <h1>Escanea tu pulsera</h1>
+      <p class="sub">Apunta al código de tu pulsera.</p>
+
+      <div class="visor">
+        <video id="video" playsinline muted></video>
+        <canvas id="lienzo" class="oculto"></canvas>
+        <div class="visor-mira"></div>
+      </div>
+
+      <div class="aviso malo oculto" id="esc-error"></div>
+
+      <p class="nota">Si no enfoca, acércala más y busca buena luz.</p>
+      <button class="boton texto" id="btn-manual">Escribir el número a mano</button>
     </section>
 
     <!-- REGISTRO: colegio -->
@@ -126,15 +143,18 @@
       <button class="boton primario grande" id="btn-reintentar">Reintentar</button>
     </section>
 
+    <button class="boton texto oculto" id="btn-otra">Esta no es mi pulsera</button>
     <div id="aviso-cola" class="pie-cola oculto"></div>
   </div>
 </main>
 
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=13"></script>
-<script src="assets/geo.js?v=13"></script>
-<script src="assets/almacen.js?v=13"></script>
-<script src="assets/datos.js?v=13"></script>
-<script src="assets/marcar.js?v=13"></script>
+<script src="config.js?v=14"></script>
+<script src="assets/geo.js?v=14"></script>
+<script src="assets/escaner.js?v=14"></script>
+<script src="assets/almacen.js?v=14"></script>
+<script src="assets/datos.js?v=14"></script>
+<script src="assets/marcar.js?v=14"></script>
 </body>
 </html>
