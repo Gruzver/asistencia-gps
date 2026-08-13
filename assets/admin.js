@@ -76,22 +76,80 @@
     const cuerpo = $('cuerpo-estado');
     if (!gid) { cuerpo.innerHTML = ''; $('estado-vacio').classList.remove('oculto'); return; }
 
-    const alumnos = await Datos.alumnosDe(gid);
+    const alumnos = (await Datos.alumnosDe(gid)).filter((a) => a.activo !== false);
     const pulseras = await Datos.pulserasTodas();
     const porId = {};
     pulseras.forEach((p) => { porId[p.id] = p.codigo; });
+
+    // Nombres repetidos: el alumno se identifica eligiendo el suyo
+    // de la lista, asi que dos iguales son indistinguibles y uno
+    // acabara tomando la identidad del otro. Hay que avisarlo antes
+    // de salir de viaje, no descubrirlo en el mirador.
+    const cuenta = {};
+    alumnos.forEach((a) => {
+      const k = a.nombre.trim().toLowerCase();
+      cuenta[k] = (cuenta[k] || 0) + 1;
+    });
+    const repes = Object.entries(cuenta).filter(([, n]) => n > 1);
+    const aviso = $('aviso-duplicados');
+    if (repes.length) {
+      aviso.innerHTML = '<span>⚠</span><span><strong>Hay nombres repetidos.</strong> ' +
+        'Al registrarse, los alumnos eligen su nombre de la lista: si hay dos iguales ' +
+        'no podrán distinguirlos. Edítalos para diferenciarlos (por ejemplo, añadiendo ' +
+        'la inicial del segundo apellido).<br>' +
+        repes.map(([n, c]) => `“${n}” ×${c}`).join(' · ') + '</span>';
+      aviso.classList.remove('oculto');
+    } else {
+      aviso.classList.add('oculto');
+    }
 
     cuerpo.innerHTML = alumnos
       .slice().sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
       .map((a) => {
         const cod = a.pulsera_id ? porId[a.pulsera_id] : null;
-        return `<tr><td>${a.nombre}</td>` +
+        const dup = cuenta[a.nombre.trim().toLowerCase()] > 1;
+        return `<tr><td>${a.nombre}` +
+          (dup ? ' <span class="alerta" title="Nombre repetido">⚠</span>' : '') + '</td>' +
           `<td class="num">${cod || '—'}</td><td>` +
           (cod ? '<span class="insignia ok">activa</span>'
                : '<span class="insignia neutra">sin activar</span>') +
+          '</td><td class="acciones-celda">' +
+          `<button class="boton chico" data-editar="${a.id}" data-nombre="${
+            a.nombre.replace(/"/g, '&quot;')}">Nombre</button>` +
+          (cod ? `<button class="boton chico" data-liberar="${a.id}">Liberar</button>` : '') +
+          `<button class="boton chico" data-borrar="${a.id}">Quitar</button>` +
           '</td></tr>';
       }).join('');
     $('estado-vacio').classList.toggle('oculto', alumnos.length > 0);
+
+    cuerpo.querySelectorAll('[data-editar]').forEach((b) => {
+      b.addEventListener('click', () => {
+        const nuevo = prompt('Nombre del alumno:', b.dataset.nombre);
+        if (!nuevo || nuevo.trim() === b.dataset.nombre) return;
+        conAviso(() => Datos.editarAlumno({ id: b.dataset.editar, nombre: nuevo.trim() }));
+      });
+    });
+
+    cuerpo.querySelectorAll('[data-liberar]').forEach((b) => {
+      b.addEventListener('click', () => {
+        if (!confirm('¿Liberar la pulsera de este alumno?\n\n' +
+                     'Podrá registrarse de nuevo con otra pulsera. ' +
+                     'Sus marcajes se conservan.')) return;
+        conAviso(() => Datos.liberarPulsera(b.dataset.liberar));
+      });
+    });
+
+    cuerpo.querySelectorAll('[data-borrar]').forEach((b) => {
+      b.addEventListener('click', () => {
+        if (!confirm('¿Quitar a este alumno del grupo?\n\n' +
+                     'Si ya tiene marcajes se desactiva en vez de borrarse, ' +
+                     'para no dejar huecos en el historial.')) return;
+        conAviso(() => Datos.eliminarAlumno(b.dataset.borrar),
+                 (r) => r.desactivado
+                   ? 'Tenía marcajes: se desactivó y se conserva el historial.'
+                   : 'Alumno eliminado.');
+      });
+    });
   }
 
   /* ---------- acciones ---------- */
@@ -166,6 +224,7 @@
     });
   });
 
+  $('btn-imprimir').addEventListener('click', () => window.print());
   $('sel-grupo-guias').addEventListener('change', pintarGuias);
   $('sel-grupo-estado').addEventListener('change', pintarEstado);
 

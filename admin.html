@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#ffffff">
 <meta name="color-scheme" content="light">
 <title>Administración</title>
-<link rel="stylesheet" href="assets/style.css?v=8">
+<link rel="stylesheet" href="assets/style.css?v=10">
 </head>
 <body>
 
@@ -15,6 +15,7 @@
   <div class="marca"><span class="punto"></span> Administración</div>
   <nav>
     <a href="guia.html">Guía</a>
+    <a href="historial.html">Historial</a>
     <a href="qr.html">QR</a>
   </nav>
 </header>
@@ -106,12 +107,19 @@
       <h2>Estado del grupo</h2>
       <div class="der">
         <select id="sel-grupo-estado"></select>
-        <button class="boton" id="btn-liberar">Liberar pulseras</button>
+        <button class="boton chico" id="btn-imprimir">Imprimir lista</button>
+        <button class="boton chico" id="btn-liberar">Liberar todas</button>
       </div>
     </header>
-    <div class="tabla-scroll" style="max-height:420px">
+    <div id="aviso-duplicados" class="aviso info oculto" style="margin:16px 20px 0"></div>
+    <p class="nota no-imprimir" style="margin:14px 20px 0">
+      La lista impresa es el respaldo cuando falla el teléfono. Para un conteo
+      de seguridad en zona sin señal, papel y lapicero no tienen modos de fallo.
+    </p>
+    <div class="tabla-scroll" style="max-height:520px">
       <table>
-        <thead><tr><th>Alumno</th><th>Pulsera</th><th>Estado</th></tr></thead>
+        <thead><tr><th>Alumno</th><th>Pulsera</th><th>Estado</th>
+          <th class="no-imprimir"></th></tr></thead>
         <tbody id="cuerpo-estado"></tbody>
       </table>
       <div class="vacio oculto" id="estado-vacio">Este grupo no tiene alumnos cargados.</div>
@@ -121,11 +129,11 @@
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=8"></script>
-<script src="assets/geo.js?v=8"></script>
-<script src="assets/almacen.js?v=8"></script>
-<script src="assets/datos.js?v=8"></script>
-<script src="assets/auth.js?v=8"></script>
-<script src="assets/admin.js?v=8"></script>
+<script src="config.js?v=10"></script>
+<script src="assets/geo.js?v=10"></script>
+<script src="assets/almacen.js?v=10"></script>
+<script src="assets/datos.js?v=10"></script>
+<script src="assets/auth.js?v=10"></script>
+<script src="assets/admin.js?v=10"></script>
 </body>
 </html>

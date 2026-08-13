@@ -16,7 +16,7 @@
    haberla abierto nunca no tiene nada que cachear.
    ============================================================ */
 
-const VERSION = 'agps-v9';
+const VERSION = 'agps-v10';
 const CACHE = VERSION;
 
 const PROPIOS = [
@@ -26,6 +26,7 @@ const PROPIOS = [
   './admin.html',
   './marcar.html',
   './qr.html',
+  './historial.html',
   './config.js',
   './manifest.json',
   './icon-192.png',
@@ -40,6 +41,7 @@ const PROPIOS = [
   './assets/marcar.js',
   './assets/admin.js',
   './assets/qr.js',
+  './assets/historial.js',
 ];
 
 // Librerias externas. Se cachean igual: sin ellas la pantalla del

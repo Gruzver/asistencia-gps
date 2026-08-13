@@ -46,7 +46,16 @@ Una pantalla, un botón. Está cuidando cuarenta chicos, no mirando el teléfono
 ### Administración
 
 Antes del viaje: colegios, grupos, guías, listas de alumnos y alta de pulseras.
+Avisa si hay **nombres repetidos** en la lista — al registrarse el alumno elige su
+nombre, así que dos iguales son indistinguibles y uno acabaría tomando la identidad
+del otro. Permite corregir nombres, quitar alumnos y liberar una pulsera suelta.
+La **lista impresa** es el respaldo para zonas sin señal.
 Después: **Liberar pulseras** las devuelve al stock conservando los marcajes.
+
+### Historial
+
+Después del viaje: qué pasó en cada parada, resumen de asistencia por alumno y
+**exportación a CSV** —todo el grupo o una parada— para entregar al colegio.
 
 ---
 
@@ -180,11 +189,6 @@ pleno viaje por cambiar de teléfono, pero queda el rastro.
 
 - **El acceso de guías no es seguridad real** (ver arriba). Consciente, para la fase
   de pruebas; el camino para cerrarlo está preparado y documentado.
-- **No hay exportación ni historial.** Terminado el viaje no hay forma de sacar los
-  datos ni de revisar paradas anteriores desde la plataforma.
-- **La lista de alumnos no se puede editar** una vez cargada: no se corrigen erratas
-  ni se quita a alguien, y dos alumnos con el mismo nombre son indistinguibles al
-  registrarse.
 - **Cerrar una parada ya subida necesita conexión.** Abrirla sin señal sí funciona.
 - **iOS es más limitado:** no hay sincronización en segundo plano (sube al abrir la
   app) y el sistema puede borrar el almacenamiento de una PWA sin usar por semanas.
@@ -212,6 +216,7 @@ index.html          Portada con los tres roles
 marcar.html         Alumno: registro y marcaje
 guia.html           Guía: paradas, contador, escáner, mapa
 admin.html          Colegios, grupos, guías, listas, pulseras
+historial.html      Paradas pasadas, resumen por alumno y exportación
 qr.html             Impresión de códigos
 
 assets/geo.js       GPS de precisión y formato
@@ -219,6 +224,7 @@ assets/almacen.js   Caché de lectura y bandeja de salida
 assets/datos.js     Capa de datos: motor Supabase, motor local, local-first
 assets/escaner.js   Lector de QR por cámara
 assets/auth.js      Acceso de guías y administración
+assets/historial.js Historial y exportación a CSV
 sw.js               Service worker: la app abre sin señal
 manifest.json       Instalable en la pantalla de inicio
 backend/schema.sql  Postgres: tablas, funciones, RLS y realtime

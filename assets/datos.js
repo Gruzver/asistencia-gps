@@ -346,6 +346,53 @@
     async alumnosDe(grupoId) {
       return this._leer().alumnos.filter((a) => a.grupo_id === grupoId);
     },
+
+    async paradasDe(grupoId) {
+      return this._leer().paradas
+        .filter((p) => p.grupo_id === grupoId)
+        .sort((a, b) => (a.abierta_en < b.abierta_en ? 1 : -1));
+    },
+
+    async marcajesDe(grupoId) {
+      const d = this._leer();
+      const ids = new Set(d.paradas.filter((p) => p.grupo_id === grupoId).map((p) => p.id));
+      return d.marcajes.filter((m) => ids.has(m.parada_id));
+    },
+
+    async editarAlumno({ id, nombre }) {
+      const d = this._leer();
+      const a = d.alumnos.find((x) => x.id === id);
+      if (!a) throw new ErrorDatos('ALUMNO_NO_EXISTE');
+      a.nombre = nombre;
+      this._guardar(d);
+      return a;
+    },
+
+    async eliminarAlumno(id) {
+      const d = this._leer();
+      const a = d.alumnos.find((x) => x.id === id);
+      if (!a) throw new ErrorDatos('ALUMNO_NO_EXISTE');
+      // Con marcajes registrados se desactiva en vez de borrar: el
+      // historial de asistencia no debe quedar con huecos.
+      if (d.marcajes.some((m) => m.alumno_id === id)) {
+        a.activo = false; a.pulsera_id = null; a.device_id = null;
+        this._guardar(d);
+        return { desactivado: true };
+      }
+      d.alumnos = d.alumnos.filter((x) => x.id !== id);
+      this._guardar(d);
+      return { eliminado: true };
+    },
+
+    async liberarPulsera(alumnoId) {
+      const d = this._leer();
+      const a = d.alumnos.find((x) => x.id === alumnoId);
+      if (!a) throw new ErrorDatos('ALUMNO_NO_EXISTE');
+      a.pulsera_id = null; a.device_id = null; a.registrado_en = null;
+      this._guardar(d);
+      return a;
+    },
+
     async pulserasTodas() { return this._leer().pulseras.slice(); },
   };
 
@@ -580,6 +627,52 @@
       return this._sel('alumno', 'id,nombre,pulsera_id,device_id,registrado_en',
                        { grupo_id: grupoId });
     },
+
+    async paradasDe(grupoId) {
+      const { data, error } = await this._init().from('parada').select('*')
+        .eq('grupo_id', grupoId).order('abierta_en', { ascending: false });
+      if (error) throw new ErrorDatos('CONSULTA', error.message);
+      return data || [];
+    },
+
+    async marcajesDe(grupoId) {
+      const paradas = await this.paradasDe(grupoId);
+      if (!paradas.length) return [];
+      const { data, error } = await this._init().from('marcaje').select('*')
+        .in('parada_id', paradas.map((p) => p.id));
+      if (error) throw new ErrorDatos('CONSULTA', error.message);
+      return data || [];
+    },
+
+    async editarAlumno({ id, nombre }) {
+      const { data, error } = await this._init().from('alumno')
+        .update({ nombre }).eq('id', id).select().single();
+      if (error) throw new ErrorDatos('EDITAR_ALUMNO', error.message);
+      return data;
+    },
+
+    async eliminarAlumno(id) {
+      const sb = this._init();
+      const { data: m } = await sb.from('marcaje').select('id').eq('alumno_id', id).limit(1);
+      if (m && m.length) {
+        const { error } = await sb.from('alumno')
+          .update({ activo: false, pulsera_id: null, device_id: null }).eq('id', id);
+        if (error) throw new ErrorDatos('ELIMINAR_ALUMNO', error.message);
+        return { desactivado: true };
+      }
+      const { error } = await sb.from('alumno').delete().eq('id', id);
+      if (error) throw new ErrorDatos('ELIMINAR_ALUMNO', error.message);
+      return { eliminado: true };
+    },
+
+    async liberarPulsera(alumnoId) {
+      const { data, error } = await this._init().from('alumno')
+        .update({ pulsera_id: null, device_id: null, registrado_en: null })
+        .eq('id', alumnoId).select().single();
+      if (error) throw new ErrorDatos('LIBERAR_PULSERA', error.message);
+      return data;
+    },
+
     async pulserasTodas() { return this._sel('pulsera', 'id,codigo,activa'); },
   };
 
@@ -632,6 +725,11 @@
     cargarRoster(x)  { return motor.cargarRoster(x); },
     cargarPulseras(x){ return motor.cargarPulseras(x); },
     liberarGrupo(x)  { return motor.liberarGrupo(x); },
+    liberarPulsera(x){ return motor.liberarPulsera(x); },
+    editarAlumno(x)  { return motor.editarAlumno(x); },
+    eliminarAlumno(x){ return motor.eliminarAlumno(x); },
+    paradasDe(g)     { return conCache('paradas_' + g, () => motor.paradasDe(g), []); },
+    marcajesDe(g)    { return conCache('marcajes_' + g, () => motor.marcajesDe(g), []); },
     suscribir(p, cb) { return motor.suscribir(p, cb); },
 
     esParadaLocal: (id) => typeof id === 'string' && id.startsWith('local-'),

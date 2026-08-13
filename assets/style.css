@@ -154,6 +154,33 @@ body {
 }
 
 /* ============================================================
+   Tarjetas de metrica
+   ============================================================ */
+
+.metricas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(158px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.metrica {
+  background: var(--surface); border-radius: var(--r);
+  padding: 18px 20px 16px; box-shadow: var(--sh);
+  transition: box-shadow .22s, transform .22s;
+}
+.metrica:hover { box-shadow: var(--sh-lg); transform: translateY(-1px); }
+.metrica .etiqueta { font-size: .755rem; font-weight: 500; color: var(--text-3); }
+.metrica .valor {
+  font-size: 2.15rem; font-weight: 600; letter-spacing: -.035em;
+  line-height: 1.08; margin: 7px 0 3px; font-variant-numeric: tabular-nums;
+}
+.metrica .pie { font-size: .775rem; color: var(--text-3); }
+.metrica.v-ok     .valor { color: var(--ok); }
+.metrica.v-warn   .valor { color: var(--warn); }
+.metrica.v-danger .valor { color: var(--danger); }
+
+/* ============================================================
    Paneles
    ============================================================ */
 
@@ -606,6 +633,19 @@ tbody tr:last-child td { border-bottom: none; }
 
 .opcion.elegida { border-color: var(--brand); background: var(--brand-soft); }
 .boton.activo { background: var(--ok-soft); color: var(--ok); border-color: transparent; }
+
+/* Botones de accion dentro de una fila de tabla */
+.acciones-celda {
+  display: flex; gap: 5px; justify-content: flex-end; flex-wrap: wrap;
+}
+.acciones-celda .boton { padding: 4px 10px; font-size: .75rem; }
+
+@media print {
+  .acciones-celda { display: none !important; }
+  .tabla-scroll { max-height: none !important; overflow: visible !important; }
+  .panel { box-shadow: none; border: 1px solid #d8d8dd; break-inside: auto; }
+  thead th { background: #f0f0f3 !important; }
+}
 
 /* ============================================================
    QR

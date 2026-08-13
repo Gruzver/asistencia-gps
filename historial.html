@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#ffffff">
+<meta name="color-scheme" content="light">
+<title>Historial</title>
+<link rel="stylesheet" href="assets/style.css?v=10">
+</head>
+<body>
+
+<header class="barra">
+  <div class="marca"><span class="punto"></span> Historial</div>
+  <div class="barra-centro"><select id="sel-grupo" aria-label="Grupo"></select></div>
+  <nav>
+    <a href="guia.html">Guía</a>
+    <a href="admin.html">Admin</a>
+  </nav>
+</header>
+
+<main class="envoltura">
+
+  <div class="metricas">
+    <div class="metrica">
+      <div class="etiqueta">Paradas</div>
+      <div class="valor" id="m-paradas">--</div>
+      <div class="pie">registradas</div>
+    </div>
+    <div class="metrica">
+      <div class="etiqueta">Alumnos</div>
+      <div class="valor" id="m-alumnos">--</div>
+      <div class="pie">en el grupo</div>
+    </div>
+    <div class="metrica v-ok">
+      <div class="etiqueta">Asistencia media</div>
+      <div class="valor" id="m-media">--</div>
+      <div class="pie">de todas las paradas</div>
+    </div>
+    <div class="metrica v-danger">
+      <div class="etiqueta">Marcajes lejos</div>
+      <div class="valor" id="m-lejos">--</div>
+      <div class="pie">fuera del radio</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <header>
+      <h2>Paradas</h2>
+      <div class="der">
+        <button class="boton" id="btn-csv-todo">Exportar todo</button>
+      </div>
+    </header>
+    <div class="tabla-scroll" style="max-height:340px">
+      <table>
+        <thead><tr>
+          <th>Parada</th><th>Fecha</th><th>Asistencia</th><th>Lejos</th><th></th>
+        </tr></thead>
+        <tbody id="cuerpo-paradas"></tbody>
+      </table>
+      <div class="vacio oculto" id="paradas-vacio">Este grupo aún no tiene paradas.</div>
+    </div>
+  </div>
+
+  <div class="panel oculto" id="panel-detalle">
+    <header>
+      <h2 id="det-titulo">Detalle</h2>
+      <div class="der">
+        <span class="nota" id="det-info"></span>
+        <button class="boton chico" id="btn-csv-parada">CSV</button>
+      </div>
+    </header>
+    <div class="tabla-scroll" style="max-height:460px">
+      <table>
+        <thead><tr>
+          <th>Alumno</th><th>Hora</th><th>Distancia</th><th>Origen</th><th>Estado</th>
+        </tr></thead>
+        <tbody id="cuerpo-detalle"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <header>
+      <h2>Resumen por alumno</h2>
+      <div class="der"><button class="boton chico" id="btn-imprimir">Imprimir</button></div>
+    </header>
+    <div class="tabla-scroll" style="max-height:460px">
+      <table>
+        <thead><tr>
+          <th>Alumno</th><th>Marcó</th><th>Faltó</th><th>Lejos</th><th>%</th>
+        </tr></thead>
+        <tbody id="cuerpo-resumen"></tbody>
+      </table>
+      <div class="vacio oculto" id="resumen-vacio">Sin datos todavía.</div>
+    </div>
+  </div>
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js?v=10"></script>
+<script src="assets/geo.js?v=10"></script>
+<script src="assets/almacen.js?v=10"></script>
+<script src="assets/datos.js?v=10"></script>
+<script src="assets/auth.js?v=10"></script>
+<script src="assets/historial.js?v=10"></script>
+</body>
+</html>
