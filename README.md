@@ -190,6 +190,9 @@ pleno viaje por cambiar de teléfono, pero queda el rastro.
 - **El acceso de guías no es seguridad real** (ver arriba). Consciente, para la fase
   de pruebas; el camino para cerrarlo está preparado y documentado.
 - **Cerrar una parada ya subida necesita conexión.** Abrirla sin señal sí funciona.
+- **El proyecto de Supabase se pausa tras 7 días sin uso** (plan gratuito). No se
+  pierde nada: se restaura desde el panel en un minuto. **Compruébalo antes de cada
+  viaje**, no en el paradero.
 - **iOS es más limitado:** no hay sincronización en segundo plano (sube al abrir la
   app) y el sistema puede borrar el almacenamiento de una PWA sin usar por semanas.
 - **Si el teléfono del guía muere**, se pierde lo no sincronizado.

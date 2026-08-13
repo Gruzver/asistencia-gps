@@ -204,6 +204,13 @@
     await refrescar();
 
     try { desuscribir = Datos.suscribir(parada.id, refrescar); } catch (e) {}
+
+    // Medido contra Supabase: tras confirmarse la suscripcion, la
+    // replicacion tarda unos segundos en emitir de verdad. Un
+    // escaneo hecho en esa ventana no llegaria empujado, asi que se
+    // repasa un par de veces al abrir la parada.
+    setTimeout(refrescar, 3000);
+    setTimeout(refrescar, 9000);
   }
 
   /* ---------- abrir parada ---------- */
