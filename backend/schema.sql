@@ -429,16 +429,15 @@ grant execute on function registrar_pulsera(text, uuid, text) to anon, authentic
 grant execute on function marcar(text, double precision, double precision,
                                  integer, text, boolean, timestamptz, text, uuid)
                                                                   to anon, authenticated;
--- Abrir parada exige sesion iniciada: es la accion que decide donde
--- y cuando cuenta la asistencia, y no puede quedar al alcance de
--- cualquiera con el enlace. El alumno NO necesita login: marcar
--- sigue abierto a anon, porque el QR es su unica credencial.
-revoke execute on function abrir_parada(uuid, text, double precision,
-                                        double precision, integer, uuid) from anon;
-grant  execute on function abrir_parada(uuid, text, double precision,
-                                        double precision, integer, uuid)
-                                                                  to authenticated;
-grant execute on function liberar_grupo(uuid)                     to authenticated;
+-- Abrir parada va con anon porque el acceso de guias es, por ahora,
+-- una lista de usuarios en config.js: no hay sesion autenticada que
+-- comprobar. Es una decision consciente para la fase de pruebas.
+--
+-- Ver mas abajo "MODO ESTRICTO" para cerrarlo de verdad.
+grant execute on function abrir_parada(uuid, text, double precision,
+                                       double precision, integer, uuid)
+                                                                  to anon, authenticated;
+grant execute on function liberar_grupo(uuid)                     to anon, authenticated;
 
 -- ------------------------------------------------------------
 --  Realtime: el panel del guia recibe cada marcaje empujado
@@ -461,3 +460,38 @@ begin
     end;
   end loop;
 end $$;
+
+-- ============================================================
+--  MODO ESTRICTO  (opcional, para cuando haga falta de verdad)
+-- ============================================================
+--  Mientras el acceso de guias sea una lista de usuarios en
+--  config.js, esas claves viajan en el codigo de la pagina y la
+--  clave publica de Supabase permite llamar a la base directo.
+--  Sirve para que un alumno no entre por curiosidad; no frena a
+--  quien sepa abrir las herramientas del navegador.
+--
+--  Para cerrarlo:
+--    1. Crear los usuarios en Supabase → Authentication → Users
+--    2. Poner ACCESO_SUPABASE: true en config.js
+--    3. Ejecutar el bloque de abajo
+--
+--  A partir de ahi, abrir paradas, liberar pulseras y escribir en
+--  cualquier tabla exige sesion iniciada. Marcar y registrarse
+--  siguen abiertos: el QR es la unica credencial del alumno, y
+--  pedirle login romperia todo el flujo.
+-- ============================================================
+--
+-- revoke execute on function abrir_parada(uuid, text, double precision,
+--                                         double precision, integer, uuid) from anon;
+-- revoke execute on function liberar_grupo(uuid) from anon;
+--
+-- -- Ademas, quitar de las tablas la escritura directa de anon:
+-- do $$
+-- declare t text;
+-- begin
+--   foreach t in array array['colegio','viaje','grupo','pulsera','alumno',
+--                            'parada','marcaje','guia','grupo_guia']
+--   loop
+--     execute format('revoke insert, update, delete on %I from anon', t);
+--   end loop;
+-- end $$;

@@ -109,16 +109,24 @@ datos viven solo en ese navegador. Sirve para validar el recorrido antes de cone
 
 ### 3. Cuentas de acceso
 
-Guía y administración piden correo y contraseña; el alumno no, porque su QR es su
-única credencial. Las cuentas las crea el admin en **Supabase → Authentication →
-Users → Add user**. No hay registro público, a propósito.
+Guía y administración piden usuario y contraseña; el alumno no, porque su QR es su
+única credencial. Los usuarios son una **lista en [`config.js`](config.js)** —
+edítala, añade o quita a quien quieras:
 
-Después, en `admin.html`, crea el guía con **ese mismo correo** para que sus
-paradas y escaneos queden atribuidos.
+| Usuario | Contraseña | Rol |
+|---|---|---|
+| `guia1` | `colca-4291` | guía |
+| `guia2` | `condor-4904` | guía |
+| `guia3` | `chili-9334` | guía |
+| `guia4` | `sillar-4314` | guía |
+| `admin` | `chachani-6257` | administración |
 
-En modo local hay claves de prueba: `guia@demo` / `guia123` y `admin@demo` /
-`admin123`. Eso **no es seguridad**, solo sirve para recorrer el flujo sin base
-de datos.
+> **Qué protege y qué no.** Evita que un alumno curioso entre al panel del guía,
+> vea dónde está todo el mundo o cierre una parada. **No es seguridad real:** las
+> claves viajan en el código de la página y la clave pública de Supabase permite
+> llamar a la base directamente. Para cerrarlo de verdad, pon `ACCESO_SUPABASE: true`,
+> crea los usuarios en Supabase → Authentication → Users y aplica el bloque
+> **MODO ESTRICTO** al final de `backend/schema.sql`.
 
 ### 4. Cargar datos y salir
 
@@ -170,6 +178,13 @@ pleno viaje por cambiar de teléfono, pero queda el rastro.
 
 ## Limitaciones conocidas
 
+- **El acceso de guías no es seguridad real** (ver arriba). Consciente, para la fase
+  de pruebas; el camino para cerrarlo está preparado y documentado.
+- **No hay exportación ni historial.** Terminado el viaje no hay forma de sacar los
+  datos ni de revisar paradas anteriores desde la plataforma.
+- **La lista de alumnos no se puede editar** una vez cargada: no se corrigen erratas
+  ni se quita a alguien, y dos alumnos con el mismo nombre son indistinguibles al
+  registrarse.
 - **Cerrar una parada ya subida necesita conexión.** Abrirla sin señal sí funciona.
 - **iOS es más limitado:** no hay sincronización en segundo plano (sube al abrir la
   app) y el sistema puede borrar el almacenamiento de una PWA sin usar por semanas.

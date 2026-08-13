@@ -378,7 +378,9 @@
   async function iniciar() {
     // Abrir y cerrar paradas exige sesion; marcar no, porque el QR
     // es la unica credencial del alumno.
-    await Auth.exigir('Acceso para guías');
+    const sesion = await Auth.exigir('Acceso para guías');
+    // Si no se ha elegido guia todavia, se propone el de la cuenta
+    if (!yo && sesion) $('btn-yo').textContent = sesion.nombre;
 
     $('banner-demo').classList.toggle('oculto', !Datos.esDemo());
     pintarRed();

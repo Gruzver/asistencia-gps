@@ -172,7 +172,7 @@
   /* ---------- arranque ---------- */
 
   (async function () {
-    await Auth.exigir('Acceso de administración');
+    await Auth.exigir('Acceso de administración', 'admin');
     $('banner-demo').classList.toggle('oculto', !Datos.esDemo());
     try { await recargar(); }
     catch (e) {
