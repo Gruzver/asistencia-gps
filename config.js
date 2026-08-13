@@ -11,10 +11,10 @@
    ============================================================ */
 window.CONFIG = {
   // Ej: 'https://abcdefgh.supabase.co'
-  SUPABASE_URL: '',
+  SUPABASE_URL: 'https://luivrngudsqhqeuaaife.supabase.co',
   // La clave "anon public". Es publica por diseño: la seguridad
   // real la imponen las politicas RLS del esquema.
-  SUPABASE_ANON_KEY: '',
+  SUPABASE_ANON_KEY: 'sb_publishable_XU3vkx791_t2D5ltagaDng_13foEg9V',
 
   // Metros de tolerancia por defecto al abrir una parada
   RADIO_DEFAULT: 150,
@@ -68,4 +68,7 @@ window.CONFIG = {
   ],
 };
 
-window.CONFIG.DEMO = !window.CONFIG.SUPABASE_URL;
+// Solo hay backend real si estan los DOS valores; con uno suelto
+// el motor cae al local y el indicador debe decir lo mismo.
+window.CONFIG.DEMO = !(window.CONFIG.SUPABASE_URL &&
+                       window.CONFIG.SUPABASE_ANON_KEY);

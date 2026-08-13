@@ -414,6 +414,10 @@
       distancia_m: base.distancia_m != null ? base.distancia_m
                    : (viejo.distancia_m != null ? viejo.distancia_m : nuevo.distancia_m),
       diferido: !!(viejo.diferido || nuevo.diferido),
+      // Las señales de alerta se acumulan, no se pisan: marcar una
+      // vez desde otro telefono debe seguir visible aunque despues
+      // se marque desde el propio.
+      device_distinto: !!(viejo.device_distinto || nuevo.device_distinto),
       creado_en: viejo.creado_en < nuevo.creado_en ? viejo.creado_en : nuevo.creado_en,
     });
   }

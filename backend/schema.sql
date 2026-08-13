@@ -321,6 +321,12 @@ begin
         origen      = case when p_origen <> 'alumno' then p_origen else marcaje.origen end,
         guia_id     = coalesce(excluded.guia_id, marcaje.guia_id),
         diferido    = marcaje.diferido or excluded.diferido,
+        -- Las señales de alerta se acumulan, no se pisan: si una
+        -- pulsera marca alguna vez desde otro telefono, ese hecho
+        -- debe seguir visible aunque despues vuelva a marcar desde
+        -- el suyo. Sin este OR, prestarse la pulsera despues de
+        -- haber marcado ya no dejaba rastro.
+        device_distinto = marcaje.device_distinto or excluded.device_distinto,
         creado_en   = least(marcaje.creado_en, excluded.creado_en)
   returning * into v_marcaje;
 
