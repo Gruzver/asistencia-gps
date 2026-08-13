@@ -8,7 +8,7 @@
 <meta name="color-scheme" content="light">
 <title>Panel de asistencia</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<link rel="stylesheet" href="assets/style.css?v=3">
+<link rel="stylesheet" href="assets/style.css?v=4">
 </head>
 <body>
 
@@ -25,7 +25,12 @@
   <div id="banner-demo" class="aviso info oculto">
     <span>●</span>
     <span><strong>Modo demostración.</strong> Datos ficticios, ninguna persona real.
-      Para conectar tu hoja, pega la URL del Apps Script en <code>config.js</code>.</span>
+      Tus marcajes de prueba se guardan solo en este navegador.
+      Para conectar tu hoja, pega la URL del Apps Script en <code>config.js</code>.
+      <button class="boton" id="btn-limpiar-demo"
+              style="margin-left:6px;padding:3px 12px;font-size:.78rem">
+        Limpiar pruebas
+      </button></span>
   </div>
   <div id="banner-error" class="aviso malo oculto"></div>
 
@@ -116,9 +121,9 @@
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="config.js?v=3"></script>
-<script src="data/demo.js?v=3"></script>
-<script src="assets/api.js?v=3"></script>
-<script src="assets/dashboard.js?v=3"></script>
+<script src="config.js?v=4"></script>
+<script src="data/demo.js?v=4"></script>
+<script src="assets/api.js?v=4"></script>
+<script src="assets/dashboard.js?v=4"></script>
 </body>
 </html>

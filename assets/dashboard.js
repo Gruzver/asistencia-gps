@@ -240,6 +240,11 @@
     $('f-estado').addEventListener('change', repintar);
     $('btn-csv').addEventListener('click', exportarCSV);
     $('btn-centrar').addEventListener('click', pintarMapa);
+    $('btn-limpiar-demo').addEventListener('click', function () {
+      if (!confirm('¿Borrar los marcajes de prueba de este navegador?')) return;
+      API.limpiarDemo();
+      cargar();
+    });
     cargar();
     setInterval(cargar, CONFIG.REFRESCO_PANEL);
   });

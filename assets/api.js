@@ -118,8 +118,30 @@
 
   /* ---------- capa demo ---------- */
 
+  /* Los marcajes de prueba se guardan en localStorage para que el
+     recorrido completo funcione: marcas en el telefono y el punto
+     aparece en el panel. Es por navegador, no entre dispositivos;
+     eso ultimo requiere el backend real conectado. */
+  const CLAVE_DEMO = 'asistencia_gps_demo';
+
   const demo = {
-    _extra: [],
+    _leer() {
+      try {
+        return JSON.parse(global.localStorage.getItem(CLAVE_DEMO)) || [];
+      } catch (e) {
+        return []; // modo privado o almacenamiento bloqueado
+      }
+    },
+
+    _guardar(filas) {
+      try {
+        global.localStorage.setItem(CLAVE_DEMO, JSON.stringify(filas));
+      } catch (e) { /* sin almacenamiento: se pierde al salir */ }
+    },
+
+    limpiar() {
+      try { global.localStorage.removeItem(CLAVE_DEMO); } catch (e) {}
+    },
 
     datos() {
       const d = global.DEMO_DATA;
@@ -129,7 +151,7 @@
         lugares: d.lugares,
         lugarActual: d.lugares.find((l) => l.id === d.lugarActual),
         personas: d.personas,
-        asistencia: d.asistencia.concat(this._extra),
+        asistencia: d.asistencia.concat(this._leer()),
       });
     },
 
@@ -138,7 +160,8 @@
       const p = d.personas.find((x) => x.id === id);
       const lugar = d.lugares.find((l) => l.id === d.lugarActual);
       if (!p) return Promise.resolve({ ok: false, error: 'ID no registrado', lugar });
-      const ya = d.asistencia.concat(this._extra).some((a) => a.id === id && a.fecha === fechaHoy());
+      const ya = d.asistencia.concat(this._leer())
+        .some((a) => a.id === id && a.fecha === fechaHoy());
       return Promise.resolve({ ok: true, demo: true, persona: p, lugar, yaMarco: ya });
     },
 
@@ -161,7 +184,10 @@
         distancia: dist,
         estado: dist <= radio ? 'EN_ZONA' : 'FUERA_ZONA',
       };
-      this._extra.push(fila);
+      const filas = this._leer();
+      filas.push(fila);
+      this._guardar(filas);
+
       return Promise.resolve({
         ok: true,
         demo: true,
@@ -178,6 +204,9 @@
 
   const API = {
     esDemo: () => CFG.DEMO,
+
+    /** Borra los marcajes de prueba. Solo aplica en modo demo. */
+    limpiarDemo() { demo.limpiar(); },
 
     /** Datos completos para el panel. */
     datos() {
