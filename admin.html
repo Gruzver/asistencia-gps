@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#ffffff">
 <meta name="color-scheme" content="light">
 <title>Administración</title>
-<link rel="stylesheet" href="assets/style.css?v=7">
+<link rel="stylesheet" href="assets/style.css?v=8">
 </head>
 <body>
 
@@ -40,6 +40,27 @@
         <input type="text" id="in-grupo" placeholder="Grupo (ej. 5A)">
         <button class="boton" id="btn-grupo">Crear grupo</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Guías -->
+  <div class="panel">
+    <header>
+      <h2>Guías</h2>
+      <div class="der"><select id="sel-grupo-guias"></select></div>
+    </header>
+    <div class="cuerpo">
+      <p class="nota">Un viaje puede llevar varios guías: todos ven la misma parada
+        y el mismo conteo. Si dos abren parada a la vez, el segundo se une a la del
+        primero en vez de crear otra. El código corto es para que el guía se
+        identifique en su teléfono.</p>
+      <div class="fila-form">
+        <input type="text" id="in-guia-nombre" placeholder="Nombre del guía">
+        <input type="text" id="in-guia-codigo" placeholder="Código" style="max-width:120px">
+        <button class="boton" id="btn-guia">Crear guía</button>
+      </div>
+      <ul class="lista-personas lista-encuadrada" id="lista-guias-admin"></ul>
+      <div class="vacio oculto" id="guias-vacio">Todavía no hay guías.</div>
     </div>
   </div>
 
@@ -99,9 +120,10 @@
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=7"></script>
-<script src="assets/geo.js?v=7"></script>
-<script src="assets/datos.js?v=7"></script>
-<script src="assets/admin.js?v=7"></script>
+<script src="config.js?v=8"></script>
+<script src="assets/geo.js?v=8"></script>
+<script src="assets/almacen.js?v=8"></script>
+<script src="assets/datos.js?v=8"></script>
+<script src="assets/admin.js?v=8"></script>
 </body>
 </html>

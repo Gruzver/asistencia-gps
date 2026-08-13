@@ -516,6 +516,92 @@ tbody tr:last-child td { border-bottom: none; }
 }
 
 /* ============================================================
+   Escaner a pantalla completa
+   ============================================================ */
+
+.escaner {
+  position: fixed; inset: 0; z-index: 1200;
+  background: #000; overflow: hidden;
+}
+.escaner video {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+}
+
+/* Mira central: guia el encuadre sin tapar la imagen */
+.escaner-marco {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  pointer-events: none;
+}
+.escaner-mira {
+  width: min(66vw, 280px); aspect-ratio: 1;
+  border: 2.5px solid rgba(255,255,255,.9);
+  border-radius: 22px;
+  box-shadow: 0 0 0 100vmax rgba(0,0,0,.42);
+}
+
+.escaner-arriba {
+  position: absolute; top: 0; left: 0; right: 0;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: calc(env(safe-area-inset-top, 0px) + 14px) 16px 14px;
+  background: linear-gradient(rgba(0,0,0,.55), transparent);
+}
+.escaner-conteo {
+  color: #fff; font-size: 1.5rem; font-weight: 600;
+  letter-spacing: -.03em; font-variant-numeric: tabular-nums;
+}
+.escaner-arriba .boton {
+  background: rgba(255,255,255,.92); border-color: transparent;
+}
+
+.escaner-abajo {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  padding: 20px 16px calc(env(safe-area-inset-bottom, 0px) + 22px);
+  background: linear-gradient(transparent, rgba(0,0,0,.62));
+  text-align: center;
+}
+
+.escaner-mensaje {
+  color: #fff; font-size: 1.12rem; font-weight: 600;
+  letter-spacing: -.025em; min-height: 1.5em;
+  text-shadow: 0 1px 8px rgba(0,0,0,.6);
+  transition: color .2s;
+}
+.escaner-mensaje.bien  { color: #4ade80; }
+.escaner-mensaje.mal   { color: #ff8a80; }
+.escaner-mensaje.aviso { color: #fbbf24; }
+
+.escaner-ultimos {
+  display: flex; flex-direction: column; gap: 4px;
+  margin-top: 12px; align-items: center;
+}
+.reciente {
+  font-size: .82rem; padding: 4px 13px; border-radius: 980px;
+  background: rgba(255,255,255,.16); color: rgba(255,255,255,.92);
+  backdrop-filter: blur(6px);
+  max-width: 90%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.reciente.bien  { background: rgba(52,199,89,.28);  color: #d9fbe4; }
+.reciente.mal   { background: rgba(255,59,48,.28);  color: #ffe0dd; }
+.reciente.aviso { background: rgba(245,179,66,.28); color: #fdf0d9; }
+
+/* ============================================================
+   Extras
+   ============================================================ */
+
+.barra-estado {
+  margin-left: auto; display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+}
+
+.lista-encuadrada {
+  border: 1px solid var(--border-soft); border-radius: var(--r-sm);
+  margin-top: 14px; overflow: hidden;
+}
+.lista-encuadrada li { padding: 10px 14px; }
+
+.opcion.elegida { border-color: var(--brand); background: var(--brand-soft); }
+.boton.activo { background: var(--ok-soft); color: var(--ok); border-color: transparent; }
+
+/* ============================================================
    QR
    ============================================================ */
 

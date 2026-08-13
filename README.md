@@ -2,7 +2,7 @@
 
 Plataforma de control de asistencia para viajes escolares. Cada alumno lleva una
 **pulsera con QR**; el guía abre una **parada** al llegar a un punto y ve en vivo
-quién marca, quién falta y quién marcó lejos.
+quién marca, quién falta y quién marcó lejos. Funciona **sin señal**.
 
 **Demo:** https://gruzver.github.io/asistencia-gps/ — corre en modo local con datos
 de prueba, sin tocar ninguna base de datos.
@@ -11,13 +11,13 @@ de prueba, sin tocar ninguna base de datos.
 
 ## Idea central
 
-La **pulsera es física y eterna**; el **alumno es temporal**. Esa separación es lo
-que permite reutilizar las pulseras entre viajes sin perder el historial: al cerrar
-un viaje se liberan y quedan listas para el siguiente grupo.
+La **pulsera es física y eterna**; el **alumno es temporal**. Esa separación permite
+reutilizar las pulseras entre viajes sin perder el historial: al cerrar un viaje se
+liberan y quedan listas para el siguiente grupo.
 
 ```
 colegio → grupo → alumno ──┐
-                            ├── marcaje ── parada
+        └→ guía            ├── marcaje ── parada
 pulsera (código fijo) ─────┘
 ```
 
@@ -27,26 +27,60 @@ pulsera (código fijo) ─────┘
 
 ### Alumno
 
-Escanea el QR de su pulsera. Nada que instalar, nada que recordar.
+Escanea el QR de su pulsera. Nada que instalar.
 
-- **Primera vez:** elige colegio → grupo → su nombre de la lista → confirma.
-  Tres toques. La pulsera queda ligada a esa identidad y a ese teléfono.
-- **Siguientes:** ve el nombre de la parada activa y marca. Si ya marcó, se lo dice.
+- **Primera vez:** colegio → grupo → su nombre de la lista → confirma. Tres toques.
+  La pulsera queda ligada a esa identidad y a ese teléfono.
+- **Siguientes:** ve la parada activa y marca.
 
 ### Guía
 
 Una pantalla, un botón. Está cuidando cuarenta chicos, no mirando el teléfono.
 
 1. **Tomar asistencia** → usa su propia ubicación como centro de la parada
-2. Escribe el nombre del lugar y elige el radio
-3. Ve el contador `23/40` crecer solo, sin refrescar
-4. Lista de **quién falta**, con botón para marcar a mano a quien no tenga batería
-5. **Cerrar parada** cuando el grupo se mueve
+2. Ve el contador `23/40` crecer solo, sin refrescar
+3. **Escanear pulseras** → cámara a pantalla completa, uno tras otro sin tocar nada
+4. Lista de **quién falta**, con botón *Presente* para quien no tenga batería
+5. **Cerrar** cuando el grupo se mueve
 
 ### Administración
 
-Antes del viaje: colegios, grupos, listas de alumnos y alta de pulseras.
+Antes del viaje: colegios, grupos, guías, listas de alumnos y alta de pulseras.
 Después: **Liberar pulseras** las devuelve al stock conservando los marcajes.
+
+---
+
+## Sin señal
+
+En el Cañón del Colca no hay cobertura, y ahí es justo donde importa saber si
+faltan tres chicos. Todo el diseño asume que la red es la excepción:
+
+- **Instalable** como app (PWA). El service worker cachea la pantalla completa,
+  incluido el mapa y el lector de códigos.
+- **Precarga**: el guía toca *Descargar* con señal y se lleva el grupo entero
+  —alumnos, pulseras, parada activa— en el teléfono.
+- **Escaneo offline**: el código de pulsera se resuelve contra la caché local. El
+  guía toca y ve el nombre al instante, sin una barra de señal.
+- **Bandeja de salida**: lo que no se puede enviar se encola con su hora y
+  coordenadas reales y sube solo al reconectar. El contador avanza igual.
+
+> **Requisito operativo:** hay que abrir la aplicación y precargar el grupo **con
+> cobertura, antes de salir**. Un guía que llega al cañón sin haberla abierto nunca
+> no tiene nada que cachear.
+
+**Respaldo en papel.** Para un conteo de seguridad con menores, una lista impresa
+y un lapicero no tienen modos de fallo. Ninguna app justifica quedarse sin plan B.
+
+---
+
+## Varios guías
+
+Un viaje puede llevar varios guías; el admin los crea y los asigna al grupo. Todos
+ven la misma parada y el mismo conteo.
+
+**Si dos abren parada a la vez, el segundo se une a la del primero** en vez de crear
+otra o pisarla. Lo garantiza un índice único en la base, y la interfaz lo dice.
+Cada parada y cada marcaje registran qué guía los produjo.
 
 ---
 
@@ -67,44 +101,37 @@ SUPABASE_URL: 'https://xxxxx.supabase.co',
 SUPABASE_ANON_KEY: 'eyJhbG...',
 ```
 
-Con esos campos vacíos la plataforma corre en **modo local**: el flujo entero
-funciona (registro, paradas, marcaje, tiempo real entre pestañas) pero los datos
-viven solo en ese navegador. Sirve para validar el recorrido antes de conectar.
+Vacíos, la plataforma corre en **modo local**: el flujo entero funciona pero los
+datos viven solo en ese navegador. Sirve para validar el recorrido antes de conectar.
 
-### 3. Cargar datos
+### 3. Cargar datos y salir
 
-En `admin.html`: crea el colegio y los grupos, pega la lista de alumnos y genera
-el rango de pulseras que tengas.
-
-### 4. Imprimir
-
-En `qr.html`: elige el rango e imprime. Un QR por pulsera.
+En `admin.html`: colegio, grupos, guías, lista de alumnos y rango de pulseras.
+En `qr.html`: imprime los códigos. En `guia.html`: instala la app y **descarga el
+grupo antes de salir**.
 
 ---
 
 ## Decisiones de diseño
 
-**Sin ubicación no hay asistencia, y sin precisión de satélite tampoco.**
-`getCurrentPosition` devuelve la primera lectura disponible, que casi siempre viene
-de antena de telefonía: llega en un segundo y puede errar kilómetros. Se usa
-`watchPosition`, se conserva la mejor lectura y se corta al bajar de 30 m. Por
-encima de 150 m se rechaza, porque registrar una posición de antena acusaría de
-"fuera de zona" a alguien que sí estaba presente.
+**Se exige lectura de satélite, no la primera posición disponible.**
+`getCurrentPosition` devuelve lo que el sistema tenga a mano, que casi siempre viene
+de antena: llega en un segundo y puede errar kilómetros. Se usa `watchPosition`, se
+conserva la mejor lectura y se corta al bajar de 30 m. Por encima de 150 m se
+rechaza, porque registrar una posición de antena acusaría de "fuera de zona" a
+alguien que sí estaba presente.
 
 **La geocerca avisa, no bloquea.** El GPS bajo techo se degrada a 50–100 m; un radio
-estricto rechazaría a quien sí está. El marcaje se registra y queda señalado en rojo
-para que el guía decida.
+estricto rechazaría a quien sí está.
 
-**La distancia la calcula el servidor.** El cliente solo envía coordenadas. Así nadie
-puede declararse "en zona" manipulando la petición.
+**La distancia la calcula el servidor.** El cliente solo envía coordenadas.
 
-**Sin señal, el marcaje se encola.** En el Cañón del Colca no hay cobertura. El GPS
-funciona igual —los satélites no necesitan internet— pero enviar no. El marcaje se
-guarda con su hora y coordenadas reales y sube solo al recuperar señal: si alguien
-marca a las 10:00 en el Colca y sincroniza a las 14:00, la asistencia dice 10:00.
+**Gana el escaneo del guía sobre el automarcaje.** Si ambos ocurren, presentarse
+físicamente ante el guía es mejor evidencia que un ping de GPS. Y se conserva
+siempre la **hora más temprana**: importa cuándo se vio al alumno por primera vez,
+no cuál mensaje llegó último.
 
-**Una sola parada abierta por grupo.** Lo impone un índice único en la base. El
-alumno nunca tiene que elegir a cuál marca, y el guía no puede dejar dos vivas.
+**Una sola parada abierta por grupo.** El alumno nunca elige a cuál marca.
 
 ---
 
@@ -114,7 +141,7 @@ alumno nunca tiene que elegir a cuál marca, y el guía no puede dejar dos vivas
 |---|---|
 | Mandar el QR por WhatsApp | La pulsera queda atada al teléfono del registro |
 | Prestar la pulsera física | Dos pulseras desde el mismo teléfono quedan señaladas |
-| App de GPS falso | Se exige precisión de satélite; el guía ve los patrones raros |
+| App de GPS falso | Se exige precisión de satélite; el guía puede escanear en persona |
 | DevTools en la laptop | El escritorio no da precisión de satélite: se rechaza |
 | Adivinar números de pulsera | Solo se activan pulseras dadas de alta por el admin |
 | Borrar datos y re-registrarse | El bloqueo vive en la base, no en el navegador |
@@ -127,15 +154,17 @@ pleno viaje por cambiar de teléfono, pero queda el rastro.
 
 ## Limitaciones conocidas
 
-- **El GPS no puede capturarse en silencio.** El navegador exige aceptar el permiso.
-- **La clave anon es pública.** La seguridad real la imponen las políticas RLS del
-  esquema: anónimo solo puede leer el catálogo y llamar a las funciones de registro
-  y marcaje, que validan por dentro. Crear paradas o grupos exige sesión autenticada.
 - **Falta el login del guía.** El esquema ya distingue `anon` de `authenticated`,
   pero la pantalla de acceso no está construida: hoy cualquiera con el enlace puede
-  abrir paradas. Es lo siguiente a cerrar antes de usarlo con datos reales.
+  abrir paradas. **Es lo siguiente a cerrar antes de usarlo con datos reales.**
+- **Abrir y cerrar parada necesitan conexión.** Se puede escanear y marcar sin señal,
+  pero la parada hay que abrirla donde haya cobertura.
+- **iOS es más limitado:** no hay sincronización en segundo plano (sube al abrir la
+  app) y el sistema puede borrar el almacenamiento de una PWA sin usar por semanas.
+- **Si el teléfono del guía muere**, se pierde lo no sincronizado.
 - **El vínculo con el dispositivo se pierde** si el alumno borra los datos del sitio.
-- **NFC no está integrado todavía.** Por ahora solo QR.
+- **NFC no está integrado todavía.** El esquema ya reserva `pulsera.nfc_uid` y el
+  lector acepta códigos sueltos, así que añadirlo no cambia el flujo.
 
 ---
 
@@ -143,8 +172,8 @@ pleno viaje por cambiar de teléfono, pero queda el rastro.
 
 Registra ubicación de menores, lo que en Perú cae bajo la **Ley 29733**. El diseño
 incluye consentimiento explícito antes de pedir el permiso, `noindex` en todas las
-páginas, y liberación de perfiles al cerrar el viaje. Obtener el **consentimiento
-de los padres o tutores** y definir el plazo de conservación queda a cargo de la
+páginas y liberación de perfiles al cerrar el viaje. Obtener el **consentimiento de
+los padres o tutores** y definir el plazo de conservación queda a cargo de la
 institución.
 
 ---
@@ -152,15 +181,18 @@ institución.
 ## Estructura
 
 ```
-index.html        Portada con los tres roles
-marcar.html       Alumno: registro y marcaje
-guia.html         Guía: paradas, contador en vivo, mapa
-admin.html        Colegios, grupos, listas, pulseras
-qr.html           Impresión de códigos
+index.html          Portada con los tres roles
+marcar.html         Alumno: registro y marcaje
+guia.html           Guía: paradas, contador, escáner, mapa
+admin.html          Colegios, grupos, guías, listas, pulseras
+qr.html             Impresión de códigos
 
-assets/geo.js     GPS de precisión y formato
-assets/datos.js   Capa de datos: motor Supabase y motor local
-assets/cola.js    Cola de marcajes sin señal
+assets/geo.js       GPS de precisión y formato
+assets/almacen.js   Caché de lectura y bandeja de salida
+assets/datos.js     Capa de datos: motor Supabase, motor local, local-first
+assets/escaner.js   Lector de QR por cámara
+sw.js               Service worker: la app abre sin señal
+manifest.json       Instalable en la pantalla de inicio
 backend/schema.sql  Postgres: tablas, funciones, RLS y realtime
 ```
 

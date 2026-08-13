@@ -46,8 +46,43 @@ create table if not exists grupo (
 create table if not exists pulsera (
   id          uuid primary key default gen_random_uuid(),
   codigo      text not null unique,
+  -- Preparado para NFC: la misma pulsera puede traer ademas una
+  -- etiqueta NFC con su propio identificador. Hoy va vacio; el dia
+  -- que se active, apunta a esta misma fila y el flujo no cambia.
+  nfc_uid     text unique,
   activa      boolean not null default true,
   creado_en   timestamptz not null default now()
+);
+
+alter table pulsera add column if not exists nfc_uid text;
+do $$ begin
+  alter table pulsera add constraint pulsera_nfc_uid_key unique (nfc_uid);
+exception when duplicate_table or duplicate_object then null; end $$;
+
+-- ------------------------------------------------------------
+--  Guias
+-- ------------------------------------------------------------
+--  Un viaje puede llevar varios guias. Todos ven la misma parada
+--  y el mismo conteo; lo que se registra es quien hizo cada cosa.
+--
+--  El `codigo` es una clave corta que el admin entrega al guia
+--  para identificarse sin login. NO es seguridad —eso llega con
+--  Supabase Auth— sino atribucion: saber quien abrio la parada y
+--  quien escaneo a cada alumno.
+-- ------------------------------------------------------------
+
+create table if not exists guia (
+  id        uuid primary key default gen_random_uuid(),
+  nombre    text not null,
+  codigo    text not null unique,
+  activo    boolean not null default true,
+  creado_en timestamptz not null default now()
+);
+
+create table if not exists grupo_guia (
+  grupo_id uuid not null references grupo(id) on delete cascade,
+  guia_id  uuid not null references guia(id)  on delete cascade,
+  primary key (grupo_id, guia_id)
 );
 
 -- ------------------------------------------------------------
@@ -83,10 +118,13 @@ create table if not exists parada (
   lat         double precision not null,
   lon         double precision not null,
   radio       integer not null default 150,
+  abierta_por uuid references guia(id),
   abierta_en  timestamptz not null default now(),
   cerrada_en  timestamptz,
   creado_en   timestamptz not null default now()
 );
+
+alter table parada add column if not exists abierta_por uuid references guia(id);
 
 create index if not exists parada_grupo_idx on parada(grupo_id);
 
@@ -105,6 +143,13 @@ create table if not exists marcaje (
   distancia_m   integer,
   estado        text not null check (estado in
                   ('EN_ZONA','FUERA_ZONA','SIN_GPS','MANUAL')),
+  -- Quien produjo el marcaje. Cambia como se interpreta el GPS:
+  -- con 'alumno' la posicion es la del alumno; con 'guia_scan' es
+  -- la del encuentro, que es evidencia mas fuerte de presencia
+  -- porque el alumno se presento fisicamente ante el guia.
+  origen        text not null default 'alumno'
+                check (origen in ('alumno','guia_scan','guia_manual')),
+  guia_id       uuid references guia(id),
   device_id     text,
   -- Marca el marcaje que se guardo sin señal y subio despues
   diferido      boolean not null default false,
@@ -116,6 +161,13 @@ create table if not exists marcaje (
 );
 
 create index if not exists marcaje_parada_idx on marcaje(parada_id);
+
+alter table marcaje add column if not exists guia_id uuid references guia(id);
+alter table marcaje add column if not exists origen text not null default 'alumno';
+do $$ begin
+  alter table marcaje add constraint marcaje_origen_check
+    check (origen in ('alumno','guia_scan','guia_manual'));
+exception when duplicate_table or duplicate_object then null; end $$;
 
 -- ------------------------------------------------------------
 --  Distancia en metros (Haversine).
@@ -192,7 +244,9 @@ create or replace function marcar(
   -- Hora real de la captura. Un marcaje tomado sin señal en el
   -- Colca y subido horas despues debe quedar con SU hora, no con
   -- la del momento en que hubo cobertura.
-  p_capturado timestamptz default null
+  p_capturado timestamptz default null,
+  p_origen    text default 'alumno',
+  p_guia      uuid default null
 ) returns json language plpgsql security definer as $$
 declare
   v_alumno  alumno;
@@ -232,16 +286,33 @@ begin
             and p_device is not null
             and v_alumno.device_id <> p_device;
 
+  -- Reconciliacion de origenes. Los dos modos pueden coincidir: el
+  -- alumno se automarca y ademas el guia lo escanea. Gana el
+  -- escaneo del guia, porque presentarse fisicamente es evidencia
+  -- mas fuerte que un ping de GPS. Y se conserva SIEMPRE la hora
+  -- mas temprana: lo que interesa es cuando se vio al alumno por
+  -- primera vez, no cual mensaje llego ultimo.
   insert into marcaje (parada_id, alumno_id, lat, lon, precision_m,
                        distancia_m, estado, device_id, diferido,
-                       device_distinto, creado_en)
+                       device_distinto, origen, guia_id, creado_en)
   values (v_parada.id, v_alumno.id, p_lat, p_lon, p_precision,
           v_dist, v_estado, p_device, p_diferido, v_distinto,
-          coalesce(p_capturado, now()))
+          p_origen, p_guia, coalesce(p_capturado, now()))
   on conflict (parada_id, alumno_id) do update
-    set lat = excluded.lat, lon = excluded.lon,
-        precision_m = excluded.precision_m, distancia_m = excluded.distancia_m,
-        estado = excluded.estado, creado_en = excluded.creado_en
+    set lat         = case when marcaje.origen = 'alumno' and p_origen <> 'alumno'
+                           then excluded.lat else coalesce(marcaje.lat, excluded.lat) end,
+        lon         = case when marcaje.origen = 'alumno' and p_origen <> 'alumno'
+                           then excluded.lon else coalesce(marcaje.lon, excluded.lon) end,
+        precision_m = case when marcaje.origen = 'alumno' and p_origen <> 'alumno'
+                           then excluded.precision_m else marcaje.precision_m end,
+        distancia_m = case when marcaje.origen = 'alumno' and p_origen <> 'alumno'
+                           then excluded.distancia_m else coalesce(marcaje.distancia_m, excluded.distancia_m) end,
+        estado      = case when marcaje.origen = 'alumno' and p_origen <> 'alumno'
+                           then excluded.estado else marcaje.estado end,
+        origen      = case when p_origen <> 'alumno' then p_origen else marcaje.origen end,
+        guia_id     = coalesce(excluded.guia_id, marcaje.guia_id),
+        diferido    = marcaje.diferido or excluded.diferido,
+        creado_en   = least(marcaje.creado_en, excluded.creado_en)
   returning * into v_marcaje;
 
   return json_build_object(
@@ -249,6 +320,41 @@ begin
     'alumno',  row_to_json(v_alumno),
     'parada',  row_to_json(v_parada)
   );
+end;
+$$;
+
+-- ------------------------------------------------------------
+--  Apertura de parada.
+--  Con varios guias, el segundo NO debe crear una parada nueva ni
+--  pisar la del primero: debe unirse a la que ya esta abierta. Por
+--  eso la funcion falla en vez de cerrar la anterior, y la interfaz
+--  ofrece unirse.
+-- ------------------------------------------------------------
+
+create or replace function abrir_parada(
+  p_grupo   uuid,
+  p_nombre  text,
+  p_lat     double precision,
+  p_lon     double precision,
+  p_radio   integer,
+  p_guia    uuid default null
+) returns json language plpgsql security definer as $$
+declare
+  v_existente parada;
+  v_nueva     parada;
+begin
+  select * into v_existente
+    from parada where grupo_id = p_grupo and cerrada_en is null limit 1;
+
+  if found then
+    return json_build_object('creada', false, 'parada', row_to_json(v_existente));
+  end if;
+
+  insert into parada (grupo_id, nombre, lat, lon, radio, abierta_por)
+  values (p_grupo, p_nombre, p_lat, p_lon, coalesce(p_radio, 150), p_guia)
+  returning * into v_nueva;
+
+  return json_build_object('creada', true, 'parada', row_to_json(v_nueva));
 end;
 $$;
 
@@ -280,18 +386,21 @@ $$;
 --  vez con correo y contraseña que le crea el admin.
 -- ------------------------------------------------------------
 
-alter table colegio  enable row level security;
-alter table viaje    enable row level security;
-alter table grupo    enable row level security;
-alter table pulsera  enable row level security;
-alter table alumno   enable row level security;
-alter table parada   enable row level security;
-alter table marcaje  enable row level security;
+alter table colegio     enable row level security;
+alter table viaje       enable row level security;
+alter table grupo       enable row level security;
+alter table pulsera     enable row level security;
+alter table alumno      enable row level security;
+alter table parada      enable row level security;
+alter table marcaje     enable row level security;
+alter table guia        enable row level security;
+alter table grupo_guia  enable row level security;
 
 do $$
 declare t text;
 begin
-  foreach t in array array['colegio','viaje','grupo','pulsera','alumno','parada','marcaje']
+  foreach t in array array['colegio','viaje','grupo','pulsera','alumno',
+                           'parada','marcaje','guia','grupo_guia']
   loop
     execute format('drop policy if exists %I_lectura on %I', t, t);
     execute format('drop policy if exists %I_escritura on %I', t, t);
@@ -309,7 +418,12 @@ end $$;
 
 grant execute on function registrar_pulsera(text, uuid, text) to anon, authenticated;
 grant execute on function marcar(text, double precision, double precision,
-                                 integer, text, boolean, timestamptz)
+                                 integer, text, boolean, timestamptz, text, uuid)
+                                                                  to anon, authenticated;
+-- El guia todavia no tiene login: hasta que exista, abrir parada
+-- va con anon. Es el hueco de seguridad conocido y documentado.
+grant execute on function abrir_parada(uuid, text, double precision,
+                                       double precision, integer, uuid)
                                                                   to anon, authenticated;
 grant execute on function liberar_grupo(uuid)                     to authenticated;
 
@@ -324,6 +438,13 @@ begin
   end if;
 end $$;
 
-alter publication supabase_realtime add table marcaje;
-alter publication supabase_realtime add table parada;
-alter publication supabase_realtime add table alumno;
+do $$
+declare t text;
+begin
+  foreach t in array array['marcaje','parada','alumno'] loop
+    begin
+      execute format('alter publication supabase_realtime add table %I', t);
+    exception when duplicate_object then null;
+    end;
+  end loop;
+end $$;

@@ -27,10 +27,41 @@
     colegios = await Datos.colegios();
     grupos = await Datos.grupos();
     opciones($('sel-colegio'), colegios, (c) => c.nombre);
-    [['sel-grupo-roster'], ['sel-grupo-estado']].forEach(([id]) =>
+    ['sel-grupo-roster', 'sel-grupo-estado', 'sel-grupo-guias'].forEach((id) =>
       opciones($(id), grupos, nombreColegio));
     await pintarEstado();
+    await pintarGuias();
     await contarPulseras();
+  }
+
+  /** Guias del sistema, con casilla de asignacion al grupo elegido. */
+  async function pintarGuias() {
+    const gid = $('sel-grupo-guias').value;
+    const todos = await Datos.guias();
+    const asignados = gid ? await Datos.guiasDe(gid) : [];
+    const ids = new Set(asignados.map((g) => g.id));
+    const lista = $('lista-guias-admin');
+
+    lista.innerHTML = todos.map((g) =>
+      `<li><span class="nombre">${g.nombre} ` +
+      `<span class="num">${g.codigo}</span></span>` +
+      `<button class="boton chico ${ids.has(g.id) ? 'activo' : ''}" ` +
+      `data-guia="${g.id}">${ids.has(g.id) ? '✓ en el grupo' : 'Asignar'}</button></li>`
+    ).join('');
+    $('guias-vacio').classList.toggle('oculto', todos.length > 0);
+
+    lista.querySelectorAll('[data-guia]').forEach((b) => {
+      b.addEventListener('click', async () => {
+        b.disabled = true;
+        try {
+          await Datos.asignarGuia({
+            grupoId: gid, guiaId: b.dataset.guia,
+            quitar: b.classList.contains('activo'),
+          });
+          await pintarGuias();
+        } catch (e) { alert('No se pudo: ' + (e.message || e.codigo)); b.disabled = false; }
+      });
+    });
   }
 
   async function contarPulseras() {
@@ -123,6 +154,17 @@
     conAviso(() => Datos.liberarGrupo(gid), (n) => `${n} pulseras liberadas.`);
   });
 
+  $('btn-guia').addEventListener('click', () => {
+    const nombre = $('in-guia-nombre').value.trim();
+    const codigo = $('in-guia-codigo').value.trim().toUpperCase();
+    if (!nombre || !codigo) return alert('Escribe nombre y código del guía.');
+    conAviso(() => Datos.crearGuia({ nombre, codigo }), () => {
+      $('in-guia-nombre').value = ''; $('in-guia-codigo').value = '';
+      return `Guía "${nombre}" creado.`;
+    });
+  });
+
+  $('sel-grupo-guias').addEventListener('change', pintarGuias);
   $('sel-grupo-estado').addEventListener('change', pintarEstado);
 
   /* ---------- arranque ---------- */

@@ -236,40 +236,33 @@
 
     const captura = new Date().toISOString();
     try {
+      // Datos.marcar encola solo si falla la red; el GPS ya se
+      // capturo, que es lo que no se puede recuperar despues.
       const r = await Datos.marcar({
         codigo, lat: pos.lat, lon: pos.lon,
-        precision: pos.precision, capturado_en: captura,
+        precision: pos.precision, capturado_en: captura, origen: 'alumno',
+        grupoId: est.alumno.grupo_id,
+        paradaId: est.parada && est.parada.id,
+        alumnoId: est.alumno.id,
+        paradaLat: est.parada && est.parada.lat,
+        paradaLon: est.parada && est.parada.lon,
+        paradaRadio: est.parada && est.parada.radio,
       });
-      mostrarHecho(r.marcaje, false, pos);
+      mostrarHecho(r.marcaje, false, r.pendiente);
     } catch (e) {
       if (e.codigo === 'SIN_PARADA_ABIERTA') {
         $('espera-nombre').textContent = est.alumno.nombre;
         return ir('p-espera');
       }
-      // Sin red: se guarda y se sube al recuperar señal. El GPS ya
-      // se capturo, que es lo que no se puede recuperar despues.
-      Cola.encolar({
-        codigo, lat: pos.lat, lon: pos.lon,
-        precision: pos.precision, capturado_en: captura,
-      });
-      $('ok-titulo').textContent = 'Guardado sin señal';
-      $('ok-nombre').textContent = est.alumno.nombre;
-      $('ok-datos').innerHTML = fila('Parada', est.parada ? est.parada.nombre : '--') +
-                                fila('Hora', Geo.horaSeg(captura)) +
-                                fila('Precisión', '± ' + Geo.metros(pos.precision));
-      const z = $('ok-zona');
-      z.className = 'aviso info';
-      z.innerHTML = '<span>◷</span><span><strong>Aquí no hay cobertura.</strong> ' +
-        'Tu marcaje quedó guardado con esta hora y ubicación, y se enviará ' +
-        'solo en cuanto vuelva la señal. No hace falta que hagas nada.</span>';
-      ir('p-ok');
+      fallo('No se pudo registrar', e.message || e.codigo, 'Toca Reintentar.');
     }
   }
 
   const fila = (k, v) => `<div class="dato"><span>${k}</span><b>${v}</b></div>`;
 
-  function mostrarHecho(m, previo, pos) {
-    $('ok-titulo').textContent = previo ? 'Ya marcaste aquí' : 'Asistencia registrada';
+  function mostrarHecho(m, previo, pendiente) {
+    $('ok-titulo').textContent = pendiente ? 'Guardado sin señal'
+                               : previo ? 'Ya marcaste aquí' : 'Asistencia registrada';
     $('ok-nombre').textContent = est.alumno.nombre;
     $('ok-datos').innerHTML =
       fila('Parada', est.parada ? est.parada.nombre : '--') +
@@ -278,7 +271,12 @@
       (m.precision_m ? fila('Precisión', '± ' + Geo.metros(m.precision_m)) : '');
 
     const z = $('ok-zona');
-    if (m.estado === 'FUERA_ZONA') {
+    if (pendiente) {
+      z.className = 'aviso info';
+      z.innerHTML = '<span>◷</span><span><strong>Aquí no hay cobertura.</strong> ' +
+        'Tu marcaje quedó guardado con esta hora y ubicación, y se enviará solo ' +
+        'en cuanto vuelva la señal. No hace falta que hagas nada.</span>';
+    } else if (m.estado === 'FUERA_ZONA') {
       z.className = 'aviso info';
       z.innerHTML = '<span>⚠</span><span><strong>Estás lejos del punto.</strong> ' +
         'Tu marcaje quedó registrado a ' + Geo.metros(m.distancia_m) +
@@ -295,7 +293,7 @@
 
   /* ---------- cola pendiente ---------- */
 
-  Cola.alCambiar(function (n) {
+  Datos.alCambiarPendientes(function (n) {
     const c = $('aviso-cola');
     if (!n) return c.classList.add('oculto');
     c.textContent = n === 1
@@ -303,6 +301,10 @@
       : `${n} marcajes esperando señal para enviarse`;
     c.classList.remove('oculto');
   });
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
 
   /* ---------- eventos ---------- */
 

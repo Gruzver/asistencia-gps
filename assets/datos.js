@@ -1,49 +1,35 @@
 /* ============================================================
-   Capa de datos.
+   Capa de datos, local-first.
 
    Dos motores tras la misma interfaz:
+   · supabase — Postgres con websockets, para varios guias a la vez
+   · local    — todo en localStorage, para probar sin cuenta creada
 
-   · supabase — Postgres real con websockets. El guia recibe
-     cada marcaje empujado, sin preguntar.
-   · local    — todo en localStorage. Permite recorrer el flujo
-     entero sin cuenta creada. El tiempo real se emula con el
-     evento storage, que si cruza pestañas del mismo navegador.
+   Encima de ambos hay una capa de cache y bandeja de salida: las
+   lecturas caen a lo cacheado cuando no hay red, y las escrituras
+   se encolan y se aplican de forma optimista. Asi el contador del
+   guia responde igual en el Colca que con wifi.
 
-   Las escrituras sensibles (registro y marcaje) van siempre por
-   funciones de la base: la distancia y el estado los decide el
-   servidor, para que el cliente no pueda declararse "en zona".
+   Las escrituras sensibles van por funciones de la base: la
+   distancia y el estado los decide el servidor, para que nadie
+   pueda declararse "en zona" manipulando la peticion.
    ============================================================ */
 (function (global) {
   'use strict';
 
   const CFG = global.CONFIG;
-  const CLAVE_LOCAL = 'agps_local_v1';
+  const { Cache, Bandeja, uuid } = global.Almacen;
+  const CLAVE_LOCAL = 'agps_local_v2';
   const CLAVE_DEVICE = 'agps_device';
 
-  /* ---------- identidad del dispositivo ---------- */
-
-  /**
-   * Identificador estable por navegador. No es infalible —se va
-   * si borran datos del sitio— pero basta para el proposito: no
-   * bloquea a nadie, solo delata cuando una pulsera se marca
-   * desde un telefono distinto al del registro.
-   */
   function deviceId() {
     let id;
     try {
       id = localStorage.getItem(CLAVE_DEVICE);
-      if (!id) {
-        id = (crypto.randomUUID ? crypto.randomUUID()
-                                : String(Date.now()) + Math.random());
-        localStorage.setItem(CLAVE_DEVICE, id);
-      }
-    } catch (e) {
-      id = 'sin-almacenamiento';
-    }
+      if (!id) { id = uuid(); localStorage.setItem(CLAVE_DEVICE, id); }
+    } catch (e) { id = 'sin-almacenamiento'; }
     return id;
   }
-
-  /* ---------- utilidades ---------- */
 
   function distancia(lat1, lon1, lat2, lon2) {
     const R = 6371000, rad = Math.PI / 180;
@@ -53,13 +39,26 @@
     return Math.round(2 * R * Math.asin(Math.sqrt(a)));
   }
 
-  const uuid = () =>
-    crypto.randomUUID ? crypto.randomUUID()
-                      : 'id-' + Date.now() + '-' + Math.random().toString(16).slice(2);
-
   class ErrorDatos extends Error {
     constructor(codigo, mensaje) { super(mensaje || codigo); this.codigo = codigo; }
   }
+
+  /**
+   * Errores que no se arreglan reintentando: encolarlos solo
+   * atascaria la bandeja para siempre. Todo lo demas —timeouts,
+   * DNS, 5xx— se considera de red y se reintenta.
+   *
+   * La lista es explicita a proposito. Con una expresion regular
+   * suelta, SIN_PARADA_ABIERTA se colaba como reintentable y el
+   * marcaje se encolaba en vez de avisar al alumno de que el guia
+   * todavia no habia abierto la parada.
+   */
+  const DEFINITIVOS = new Set([
+    'PULSERA_DESCONOCIDA', 'PULSERA_YA_ASIGNADA', 'PULSERA_SIN_REGISTRAR',
+    'ALUMNO_NO_EXISTE', 'ALUMNO_YA_REGISTRADO',
+    'SIN_PARADA_ABIERTA', 'CODIGO_REPETIDO', 'GRUPO_NO_EXISTE',
+  ]);
+  const esDefinitivo = (e) => !!(e && e.codigo && DEFINITIVOS.has(e.codigo));
 
   /* ============================================================
      Motor local
@@ -69,46 +68,49 @@
     _cache: null,
 
     _semilla() {
-      const cId = uuid(), gA = uuid(), gB = uuid();
-      const nombres = [
+      const col = uuid(), gA = uuid(), gB = uuid();
+      const nombresA = [
         'Ana Lucia Ramirez Soto', 'Brenda Sofia Quispe Loayza',
         'Carla Daniela Mendoza Rios', 'Diana Paola Escalante Vera',
         'Elena Mariana Torres Puma', 'Fiorella Nicole Ayala Cruz',
         'Gabriela Rocio Salas Nina', 'Helena Victoria Pinto Chura',
         'Irene Camila Vargas Ticona', 'Julia Antonella Rojas Mamani',
         'Karina Belen Flores Apaza', 'Lucia Fernanda Huaman Coila',
+        'Gruzver Phocco', 'Franck Anthony',
       ];
       const nombresB = [
         'Marina Esther Zevallos Lipa', 'Natalia Grace Ibanez Suca',
         'Olivia Renata Castro Yana', 'Paula Alejandra Guzman Arce',
         'Rosa Milagros Delgado Hancco', 'Sara Valentina Nunez Machaca',
       ];
+      const alumno = (n, g) => ({
+        id: uuid(), grupo_id: g, nombre: n, pulsera_id: null,
+        device_id: null, registrado_en: null, activo: true,
+      });
 
-      const alumnos = []
-        .concat(nombres.map((n) => ({ id: uuid(), grupo_id: gA, nombre: n })))
-        .concat(nombresB.map((n) => ({ id: uuid(), grupo_id: gB, nombre: n })))
-        .concat([
-          { id: uuid(), grupo_id: gA, nombre: 'Gruzver Phocco' },
-          { id: uuid(), grupo_id: gA, nombre: 'Franck Anthony' },
-        ])
-        .map((a) => Object.assign(a, {
-          pulsera_id: null, device_id: null, registrado_en: null, activo: true,
-        }));
-
-      // 40 pulseras fisicas con codigo corto y estable
       const pulseras = [];
       for (let i = 1; i <= 40; i++) {
-        pulseras.push({ id: uuid(), codigo: 'PL' + String(i).padStart(3, '0'), activa: true });
+        pulseras.push({ id: uuid(), codigo: 'PL' + String(i).padStart(3, '0'),
+                        nfc_uid: null, activa: true });
       }
 
+      const g1 = { id: uuid(), nombre: 'Guía principal', codigo: 'G1', activo: true };
+      const g2 = { id: uuid(), nombre: 'Guía de apoyo',  codigo: 'G2', activo: true };
+
       return {
-        colegios: [{ id: cId, nombre: 'Colegio Demo' }],
+        colegios: [{ id: col, nombre: 'Colegio Demo' }],
         grupos: [
-          { id: gA, colegio_id: cId, nombre: '5A', activo: true },
-          { id: gB, colegio_id: cId, nombre: '5B', activo: true },
+          { id: gA, colegio_id: col, nombre: '5A', activo: true },
+          { id: gB, colegio_id: col, nombre: '5B', activo: true },
+        ],
+        guias: [g1, g2],
+        grupo_guia: [
+          { grupo_id: gA, guia_id: g1.id }, { grupo_id: gA, guia_id: g2.id },
+          { grupo_id: gB, guia_id: g1.id },
         ],
         pulseras,
-        alumnos,
+        alumnos: nombresA.map((n) => alumno(n, gA))
+                 .concat(nombresB.map((n) => alumno(n, gB))),
         paradas: [],
         marcajes: [],
       };
@@ -117,11 +119,9 @@
     _leer() {
       if (this._cache) return this._cache;
       try {
-        const crudo = localStorage.getItem(CLAVE_LOCAL);
-        this._cache = crudo ? JSON.parse(crudo) : this._semilla();
-      } catch (e) {
-        this._cache = this._semilla();
-      }
+        const c = localStorage.getItem(CLAVE_LOCAL);
+        this._cache = c ? JSON.parse(c) : this._semilla();
+      } catch (e) { this._cache = this._semilla(); }
       return this._cache;
     },
 
@@ -129,20 +129,49 @@
       this._cache = d;
       try {
         localStorage.setItem(CLAVE_LOCAL, JSON.stringify(d));
-        // Despierta a las demas pestañas (el evento storage no
-        // llega a la pestaña que escribe)
         localStorage.setItem(CLAVE_LOCAL + '_tick', String(Date.now()));
-      } catch (e) { /* sin almacenamiento */ }
+      } catch (e) {}
     },
 
-    reiniciar() { this._cache = null;
-      try { localStorage.removeItem(CLAVE_LOCAL); } catch (e) {} },
+    reiniciar() {
+      this._cache = null;
+      try { localStorage.removeItem(CLAVE_LOCAL); } catch (e) {}
+    },
 
     async colegios() { return this._leer().colegios.slice(); },
 
     async grupos(colegioId) {
       return this._leer().grupos.filter(
         (g) => g.activo && (!colegioId || g.colegio_id === colegioId));
+    },
+
+    async guias() { return this._leer().guias.filter((g) => g.activo); },
+
+    async guiasDe(grupoId) {
+      const d = this._leer();
+      const ids = d.grupo_guia.filter((x) => x.grupo_id === grupoId).map((x) => x.guia_id);
+      return d.guias.filter((g) => ids.includes(g.id) && g.activo);
+    },
+
+    async crearGuia({ nombre, codigo }) {
+      const d = this._leer();
+      if (d.guias.some((g) => g.codigo === codigo)) throw new ErrorDatos('CODIGO_REPETIDO');
+      const g = { id: uuid(), nombre, codigo, activo: true };
+      d.guias.push(g); this._guardar(d); return g;
+    },
+
+    async asignarGuia({ grupoId, guiaId, quitar }) {
+      const d = this._leer();
+      d.grupo_guia = d.grupo_guia.filter(
+        (x) => !(x.grupo_id === grupoId && x.guia_id === guiaId));
+      if (!quitar) d.grupo_guia.push({ grupo_id: grupoId, guia_id: guiaId });
+      this._guardar(d);
+    },
+
+    async gruposDeGuia(guiaId) {
+      const d = this._leer();
+      const ids = d.grupo_guia.filter((x) => x.guia_id === guiaId).map((x) => x.grupo_id);
+      return d.grupos.filter((g) => ids.includes(g.id) && g.activo);
     },
 
     async pulsera(codigo) {
@@ -170,7 +199,6 @@
       const al = d.alumnos.find((a) => a.id === alumnoId);
       if (!al) throw new ErrorDatos('ALUMNO_NO_EXISTE');
       if (al.pulsera_id) throw new ErrorDatos('ALUMNO_YA_REGISTRADO');
-
       al.pulsera_id = p.id;
       al.device_id = deviceId();
       al.registrado_en = new Date().toISOString();
@@ -183,14 +211,13 @@
         (p) => p.grupo_id === grupoId && !p.cerrada_en) || null;
     },
 
-    async marcar({ codigo, lat, lon, precision, diferido, capturado_en }) {
+    async marcar({ codigo, lat, lon, precision, diferido, capturado_en, origen, guiaId }) {
       const d = this._leer();
       const p = d.pulseras.find((x) => x.codigo === codigo);
       const al = p && d.alumnos.find((a) => a.pulsera_id === p.id);
       if (!al) throw new ErrorDatos('PULSERA_SIN_REGISTRAR');
 
-      const parada = d.paradas.find(
-        (x) => x.grupo_id === al.grupo_id && !x.cerrada_en);
+      const parada = d.paradas.find((x) => x.grupo_id === al.grupo_id && !x.cerrada_en);
       if (!parada) throw new ErrorDatos('SIN_PARADA_ABIERTA');
 
       const dist = (lat == null || lon == null)
@@ -198,34 +225,41 @@
       const estado = dist == null ? 'SIN_GPS'
                    : dist <= parada.radio ? 'EN_ZONA' : 'FUERA_ZONA';
       const dev = deviceId();
+      const org = origen || 'alumno';
 
-      const fila = {
+      const nuevo = {
         id: uuid(), parada_id: parada.id, alumno_id: al.id,
         lat, lon, precision_m: precision, distancia_m: dist, estado,
-        device_id: dev, diferido: !!diferido,
+        origen: org, guia_id: guiaId || null, device_id: dev,
+        diferido: !!diferido,
         device_distinto: !!(al.device_id && al.device_id !== dev),
         creado_en: capturado_en || new Date().toISOString(),
       };
+
       const i = d.marcajes.findIndex(
         (m) => m.parada_id === parada.id && m.alumno_id === al.id);
-      if (i >= 0) d.marcajes[i] = fila; else d.marcajes.push(fila);
+      if (i >= 0) {
+        d.marcajes[i] = fusionar(d.marcajes[i], nuevo);
+      } else {
+        d.marcajes.push(nuevo);
+      }
       this._guardar(d);
-
-      return { marcaje: fila, alumno: al, parada };
+      return { marcaje: d.marcajes[i >= 0 ? i : d.marcajes.length - 1],
+               alumno: al, parada };
     },
 
-    async abrirParada({ grupoId, nombre, lat, lon, radio }) {
+    async abrirParada({ grupoId, nombre, lat, lon, radio, guiaId }) {
       const d = this._leer();
-      d.paradas.filter((p) => p.grupo_id === grupoId && !p.cerrada_en)
-               .forEach((p) => { p.cerrada_en = new Date().toISOString(); });
+      const ya = d.paradas.find((p) => p.grupo_id === grupoId && !p.cerrada_en);
+      if (ya) return { creada: false, parada: ya };
       const parada = {
         id: uuid(), grupo_id: grupoId, nombre, lat, lon,
-        radio: radio || CFG.RADIO_DEFAULT,
+        radio: radio || CFG.RADIO_DEFAULT, abierta_por: guiaId || null,
         abierta_en: new Date().toISOString(), cerrada_en: null,
       };
       d.paradas.push(parada);
       this._guardar(d);
-      return parada;
+      return { creada: true, parada };
     },
 
     async cerrarParada(paradaId) {
@@ -239,40 +273,40 @@
       const d = this._leer();
       const parada = d.paradas.find((p) => p.id === paradaId);
       if (!parada) return { parada: null, alumnos: [], marcajes: [] };
-      const alumnos = d.alumnos.filter(
-        (a) => a.grupo_id === parada.grupo_id && a.activo);
-      const marcajes = d.marcajes.filter((m) => m.parada_id === paradaId);
-      return { parada, alumnos, marcajes };
+      return {
+        parada,
+        alumnos: d.alumnos.filter((a) => a.grupo_id === parada.grupo_id && a.activo),
+        marcajes: d.marcajes.filter((m) => m.parada_id === paradaId),
+      };
     },
 
-    async marcarManual({ paradaId, alumnoId }) {
+    async marcarManual({ paradaId, alumnoId, guiaId }) {
       const d = this._leer();
-      const fila = {
+      const nuevo = {
         id: uuid(), parada_id: paradaId, alumno_id: alumnoId,
         lat: null, lon: null, precision_m: null, distancia_m: null,
-        estado: 'MANUAL', device_id: null, diferido: false,
-        device_distinto: false, registrado_por: 'guia',
+        estado: 'MANUAL', origen: 'guia_manual', guia_id: guiaId || null,
+        device_id: null, diferido: false, device_distinto: false,
         creado_en: new Date().toISOString(),
       };
       const i = d.marcajes.findIndex(
         (m) => m.parada_id === paradaId && m.alumno_id === alumnoId);
-      if (i >= 0) d.marcajes[i] = fila; else d.marcajes.push(fila);
+      if (i >= 0) d.marcajes[i] = fusionar(d.marcajes[i], nuevo);
+      else d.marcajes.push(nuevo);
       this._guardar(d);
-      return fila;
+      return d.marcajes[i >= 0 ? i : d.marcajes.length - 1];
     },
 
     suscribir(paradaId, cb) {
       const fn = (ev) => {
         if (ev.key === CLAVE_LOCAL + '_tick' || ev.key === CLAVE_LOCAL) {
-          this._cache = null;
-          cb();
+          this._cache = null; cb();
         }
       };
       global.addEventListener('storage', fn);
       return () => global.removeEventListener('storage', fn);
     },
 
-    /* --- admin --- */
     async crearColegio(nombre) {
       const d = this._leer();
       const c = { id: uuid(), nombre };
@@ -296,7 +330,7 @@
       let n = 0;
       codigos.forEach((c) => {
         if (!d.pulseras.some((p) => p.codigo === c)) {
-          d.pulseras.push({ id: uuid(), codigo: c, activa: true }); n++;
+          d.pulseras.push({ id: uuid(), codigo: c, nfc_uid: null, activa: true }); n++;
         }
       });
       this._guardar(d); return n;
@@ -304,10 +338,9 @@
     async liberarGrupo(grupoId) {
       const d = this._leer();
       let n = 0;
-      d.alumnos.filter((a) => a.grupo_id === grupoId && a.pulsera_id)
-        .forEach((a) => {
-          a.pulsera_id = null; a.device_id = null; a.registrado_en = null; n++;
-        });
+      d.alumnos.filter((a) => a.grupo_id === grupoId && a.pulsera_id).forEach((a) => {
+        a.pulsera_id = null; a.device_id = null; a.registrado_en = null; n++;
+      });
       this._guardar(d); return n;
     },
     async alumnosDe(grupoId) {
@@ -315,6 +348,28 @@
     },
     async pulserasTodas() { return this._leer().pulseras.slice(); },
   };
+
+  /**
+   * Fusiona dos marcajes del mismo alumno en la misma parada.
+   * Gana el escaneo del guia sobre el automarcaje del alumno
+   * —presentarse fisicamente es evidencia mas fuerte que un ping—
+   * y se conserva siempre la hora mas temprana, porque lo que
+   * importa es cuando se vio al alumno por primera vez.
+   */
+  function fusionar(viejo, nuevo) {
+    const asciende = viejo.origen === 'alumno' && nuevo.origen !== 'alumno';
+    const base = asciende ? nuevo : viejo;
+    return Object.assign({}, base, {
+      origen: nuevo.origen !== 'alumno' ? nuevo.origen : viejo.origen,
+      guia_id: nuevo.guia_id || viejo.guia_id,
+      lat: base.lat != null ? base.lat : (viejo.lat != null ? viejo.lat : nuevo.lat),
+      lon: base.lon != null ? base.lon : (viejo.lon != null ? viejo.lon : nuevo.lon),
+      distancia_m: base.distancia_m != null ? base.distancia_m
+                   : (viejo.distancia_m != null ? viejo.distancia_m : nuevo.distancia_m),
+      diferido: !!(viejo.diferido || nuevo.diferido),
+      creado_en: viejo.creado_en < nuevo.creado_en ? viejo.creado_en : nuevo.creado_en,
+    });
+  }
 
   /* ============================================================
      Motor Supabase
@@ -326,7 +381,7 @@
     _init() {
       if (this.sb) return this.sb;
       if (!global.supabase) throw new ErrorDatos('SIN_LIBRERIA',
-        'No cargo la libreria de Supabase.');
+        'No cargó la librería de Supabase.');
       this.sb = global.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY, {
         realtime: { params: { eventsPerSecond: 10 } },
       });
@@ -341,12 +396,56 @@
       return data;
     },
 
+    _rpcError(error) {
+      const m = String(error.message || '');
+      const cod = (m.match(/[A-Z_]{6,}/) || [])[0] || 'RPC';
+      return new ErrorDatos(cod, m);
+    },
+
     async colegios() { return this._sel('colegio', 'id,nombre'); },
 
     async grupos(colegioId) {
       const f = { activo: true };
       if (colegioId) f.colegio_id = colegioId;
       return this._sel('grupo', 'id,nombre,colegio_id', f);
+    },
+
+    async guias() { return this._sel('guia', 'id,nombre,codigo', { activo: true }); },
+
+    async guiasDe(grupoId) {
+      const { data, error } = await this._init()
+        .from('grupo_guia').select('guia:guia_id(id,nombre,codigo,activo)')
+        .eq('grupo_id', grupoId);
+      if (error) throw new ErrorDatos('CONSULTA', error.message);
+      return (data || []).map((r) => r.guia).filter((g) => g && g.activo);
+    },
+
+    async crearGuia({ nombre, codigo }) {
+      const { data, error } = await this._init().from('guia')
+        .insert({ nombre, codigo }).select().single();
+      if (error) throw new ErrorDatos('CREAR_GUIA', error.message);
+      return data;
+    },
+
+    async asignarGuia({ grupoId, guiaId, quitar }) {
+      const sb = this._init();
+      if (quitar) {
+        const { error } = await sb.from('grupo_guia').delete()
+          .eq('grupo_id', grupoId).eq('guia_id', guiaId);
+        if (error) throw new ErrorDatos('ASIGNAR', error.message);
+      } else {
+        const { error } = await sb.from('grupo_guia')
+          .upsert({ grupo_id: grupoId, guia_id: guiaId });
+        if (error) throw new ErrorDatos('ASIGNAR', error.message);
+      }
+    },
+
+    async gruposDeGuia(guiaId) {
+      const { data, error } = await this._init()
+        .from('grupo_guia').select('grupo:grupo_id(id,nombre,colegio_id,activo)')
+        .eq('guia_id', guiaId);
+      if (error) throw new ErrorDatos('CONSULTA', error.message);
+      return (data || []).map((r) => r.grupo).filter((g) => g && g.activo);
     },
 
     async pulsera(codigo) {
@@ -375,8 +474,7 @@
       const { data, error } = await this._init().rpc('registrar_pulsera', {
         p_codigo: codigo, p_alumno_id: alumnoId, p_device: deviceId(),
       });
-      if (error) throw new ErrorDatos(error.message.replace(/.*?([A-Z_]{6,}).*/s, '$1'),
-                                      error.message);
+      if (error) throw this._rpcError(error);
       return data;
     },
 
@@ -389,25 +487,23 @@
       return data[0] || null;
     },
 
-    async marcar({ codigo, lat, lon, precision, diferido, capturado_en }) {
+    async marcar({ codigo, lat, lon, precision, diferido, capturado_en, origen, guiaId }) {
       const { data, error } = await this._init().rpc('marcar', {
-        p_codigo: codigo, p_lat: lat, p_lon: lon,
-        p_precision: precision, p_device: deviceId(), p_diferido: !!diferido,
+        p_codigo: codigo, p_lat: lat, p_lon: lon, p_precision: precision,
+        p_device: deviceId(), p_diferido: !!diferido,
         p_capturado: capturado_en || null,
+        p_origen: origen || 'alumno', p_guia: guiaId || null,
       });
-      if (error) throw new ErrorDatos(error.message.replace(/.*?([A-Z_]{6,}).*/s, '$1'),
-                                      error.message);
+      if (error) throw this._rpcError(error);
       return data;
     },
 
-    async abrirParada({ grupoId, nombre, lat, lon, radio }) {
-      const sb = this._init();
-      await sb.from('parada').update({ cerrada_en: new Date().toISOString() })
-              .eq('grupo_id', grupoId).is('cerrada_en', null);
-      const { data, error } = await sb.from('parada').insert({
-        grupo_id: grupoId, nombre, lat, lon, radio: radio || CFG.RADIO_DEFAULT,
-      }).select().single();
-      if (error) throw new ErrorDatos('ABRIR_PARADA', error.message);
+    async abrirParada({ grupoId, nombre, lat, lon, radio, guiaId }) {
+      const { data, error } = await this._init().rpc('abrir_parada', {
+        p_grupo: grupoId, p_nombre: nombre, p_lat: lat, p_lon: lon,
+        p_radio: radio || CFG.RADIO_DEFAULT, p_guia: guiaId || null,
+      });
+      if (error) throw this._rpcError(error);
       return data;
     },
 
@@ -431,28 +527,25 @@
       return { parada: par, alumnos: alumnos || [], marcajes: marcajes || [] };
     },
 
-    async marcarManual({ paradaId, alumnoId }) {
+    async marcarManual({ paradaId, alumnoId, guiaId }) {
       const { data, error } = await this._init().from('marcaje').upsert({
         parada_id: paradaId, alumno_id: alumnoId, estado: 'MANUAL',
-        registrado_por: 'guia',
+        origen: 'guia_manual', guia_id: guiaId || null,
       }, { onConflict: 'parada_id,alumno_id' }).select().single();
       if (error) throw new ErrorDatos('MARCAR_MANUAL', error.message);
       return data;
     },
 
-    /** Websocket: cada marcaje llega empujado, sin preguntar. */
     suscribir(paradaId, cb) {
       const canal = this._init()
         .channel('parada-' + paradaId)
         .on('postgres_changes',
             { event: '*', schema: 'public', table: 'marcaje',
-              filter: 'parada_id=eq.' + paradaId },
-            cb)
+              filter: 'parada_id=eq.' + paradaId }, cb)
         .subscribe();
       return () => { this._init().removeChannel(canal); };
     },
 
-    /* --- admin --- */
     async crearColegio(nombre) {
       const { data, error } = await this._init().from('colegio')
         .insert({ nombre }).select().single();
@@ -491,17 +584,200 @@
   };
 
   /* ============================================================
-     Seleccion de motor
+     Capa local-first sobre el motor elegido
      ============================================================ */
 
   const usaRemoto = !!(CFG.SUPABASE_URL && CFG.SUPABASE_ANON_KEY);
   const motor = usaRemoto ? remoto : local;
 
-  global.Datos = Object.assign(Object.create(motor), {
+  /** Lee de la red y cachea; si la red falla, cae a lo cacheado. */
+  async function conCache(clave, fn, porDefecto) {
+    try {
+      const v = await fn();
+      Cache.poner(clave, v);
+      return v;
+    } catch (e) {
+      if (esDefinitivo(e)) throw e;
+      const c = Cache.sacar(clave);
+      if (c !== null) return c;
+      if (porDefecto !== undefined) return porDefecto;
+      throw e;
+    }
+  }
+
+  const API = {
     esDemo: () => !usaRemoto,
-    deviceId,
-    distancia,
-    ErrorDatos,
-    motorLocal: local,
-  });
+    deviceId, distancia, ErrorDatos, esDefinitivo, fusionar, motorLocal: local,
+
+    /* --- lecturas cacheadas --- */
+    colegios() { return conCache('colegios', () => motor.colegios(), []); },
+    grupos(c)  { return conCache('grupos_' + (c || 'todos'), () => motor.grupos(c), []); },
+    guias()    { return conCache('guias', () => motor.guias(), []); },
+    guiasDe(g) { return conCache('guias_' + g, () => motor.guiasDe(g), []); },
+    gruposDeGuia(g) { return conCache('gg_' + g, () => motor.gruposDeGuia(g), []); },
+    rosterLibre(g)  { return motor.rosterLibre(g); },
+    alumnosDe(g)    { return conCache('alumnos_' + g, () => motor.alumnosDe(g), []); },
+    pulserasTodas() { return conCache('pulseras', () => motor.pulserasTodas(), []); },
+    pulsera(c) { return motor.pulsera(c); },
+    registrar(x) { return motor.registrar(x); },
+
+    /* --- guias y admin --- */
+    crearGuia(x)     { return motor.crearGuia(x); },
+    asignarGuia(x)   { return motor.asignarGuia(x); },
+    crearColegio(x)  { return motor.crearColegio(x); },
+    crearGrupo(x)    { return motor.crearGrupo(x); },
+    cargarRoster(x)  { return motor.cargarRoster(x); },
+    cargarPulseras(x){ return motor.cargarPulseras(x); },
+    liberarGrupo(x)  { return motor.liberarGrupo(x); },
+    cerrarParada(x)  { return motor.cerrarParada(x); },
+    abrirParada(x)   { return motor.abrirParada(x); },
+    suscribir(p, cb) { return motor.suscribir(p, cb); },
+
+    /**
+     * Descarga todo lo que el guia necesita para operar sin señal.
+     * Hay que ejecutarlo CON cobertura, antes de salir: sin esto,
+     * llegar al Colca sin haber precargado deja la pantalla vacia.
+     */
+    async precargar(grupoId) {
+      const [alumnos, pulseras, parada, guias] = await Promise.all([
+        motor.alumnosDe(grupoId),
+        motor.pulserasTodas(),
+        motor.paradaAbierta(grupoId),
+        motor.guiasDe(grupoId).catch(() => []),
+      ]);
+      Cache.poner('alumnos_' + grupoId, alumnos);
+      Cache.poner('pulseras', pulseras);
+      Cache.poner('parada_' + grupoId, parada);
+      Cache.poner('guias_' + grupoId, guias);
+      if (parada) {
+        const prog = await motor.progreso(parada.id);
+        Cache.poner('prog_' + parada.id, prog);
+      }
+      Cache.poner('precarga_' + grupoId, new Date().toISOString());
+      return { alumnos: alumnos.length, pulseras: pulseras.length, parada };
+    },
+
+    precargadoEn(grupoId) { return Cache.sacar('precarga_' + grupoId); },
+
+    paradaAbierta(grupoId) {
+      return conCache('parada_' + grupoId, () => motor.paradaAbierta(grupoId), null);
+    },
+
+    /**
+     * Resuelve un codigo de pulsera contra la cache, sin red.
+     * Es la ruta critica del escaneo: el guia toca y necesita
+     * respuesta inmediata aunque no haya una barra de señal.
+     */
+    resolverCodigoLocal(codigo, grupoId) {
+      const pulseras = Cache.sacar('pulseras') || [];
+      const p = pulseras.find((x) => x.codigo === codigo);
+      if (!p) return { existe: false };
+      const alumnos = Cache.sacar('alumnos_' + grupoId) || [];
+      const al = alumnos.find((a) => a.pulsera_id === p.id) || null;
+      return { existe: true, pulsera: p, alumno: al };
+    },
+
+    /** Progreso del servidor mezclado con lo pendiente de subir. */
+    async progreso(paradaId) {
+      const base = await conCache('prog_' + paradaId, () => motor.progreso(paradaId),
+                                  { parada: null, alumnos: [], marcajes: [] });
+      const pendientes = Bandeja.de('marcaje')
+        .filter((o) => o.paradaId === paradaId)
+        .map((o) => o.optimista);
+
+      if (!pendientes.length) return base;
+
+      const marcajes = base.marcajes.slice();
+      pendientes.forEach((p) => {
+        const i = marcajes.findIndex((m) => m.alumno_id === p.alumno_id);
+        if (i >= 0) marcajes[i] = fusionar(marcajes[i], p);
+        else marcajes.push(p);
+      });
+      return Object.assign({}, base, { marcajes, pendientes: pendientes.length });
+    },
+
+    /**
+     * Marca con respaldo offline. Si la red falla, se encola con
+     * su hora y coordenadas reales y se devuelve un resultado
+     * optimista para que la pantalla del guia avance igual.
+     */
+    async marcar(datos) {
+      try {
+        return await motor.marcar(datos);
+      } catch (e) {
+        if (esDefinitivo(e)) throw e;
+        return encolarMarcaje(datos, e);
+      }
+    },
+
+    async marcarManual(datos) {
+      try {
+        return await motor.marcarManual(datos);
+      } catch (e) {
+        if (esDefinitivo(e)) throw e;
+        throw e; // el manual necesita la parada; sin red se maneja arriba
+      }
+    },
+
+    /** Sube todo lo pendiente. Seguro de llamar en cualquier momento. */
+    async sincronizar() {
+      if (!navigator.onLine) return { subidos: 0, quedan: Bandeja.todas().length };
+      const filas = Bandeja.todas();
+      let subidos = 0;
+      const quedan = [];
+      for (const f of filas) {
+        try {
+          await motor.marcar(f.datos);
+          subidos++;
+        } catch (e) {
+          f.intentos = (f.intentos || 0) + 1;
+          f.ultimoError = (e && e.codigo) || 'RED';
+          if (!esDefinitivo(e) && f.intentos < 25) quedan.push(f);
+        }
+      }
+      Bandeja.reemplazar(quedan);
+      return { subidos, quedan: quedan.length };
+    },
+
+    pendientes: () => Bandeja.todas().length,
+    alCambiarPendientes: (fn) => Bandeja.alCambiar(fn),
+  };
+
+  function encolarMarcaje(datos, err) {
+    const cache = Cache.sacar('pulseras') || [];
+    const p = cache.find((x) => x.codigo === datos.codigo);
+    const alumnos = Cache.sacar('alumnos_' + (datos.grupoId || '')) || [];
+    const al = p ? alumnos.find((a) => a.pulsera_id === p.id) : null;
+
+    const dist = (datos.lat != null && datos.paradaLat != null)
+      ? distancia(datos.lat, datos.lon, datos.paradaLat, datos.paradaLon) : null;
+    const estado = dist == null ? 'SIN_GPS'
+                 : dist <= (datos.paradaRadio || CFG.RADIO_DEFAULT)
+                   ? 'EN_ZONA' : 'FUERA_ZONA';
+
+    const optimista = {
+      id: 'pend-' + uuid(), parada_id: datos.paradaId,
+      alumno_id: al ? al.id : datos.alumnoId,
+      lat: datos.lat, lon: datos.lon, precision_m: datos.precision,
+      distancia_m: dist, estado, origen: datos.origen || 'alumno',
+      guia_id: datos.guiaId || null, diferido: true, device_distinto: false,
+      pendiente: true,
+      creado_en: datos.capturado_en || new Date().toISOString(),
+    };
+
+    Bandeja.poner({
+      tipo: 'marcaje',
+      llave: datos.paradaId + ':' + (optimista.alumno_id || datos.codigo),
+      paradaId: datos.paradaId,
+      datos: Object.assign({}, datos, { diferido: true }),
+      optimista,
+    });
+
+    return { marcaje: optimista, alumno: al, pendiente: true, error: err && err.codigo };
+  }
+
+  global.Datos = API;
+
+  global.addEventListener('online', () => API.sincronizar());
+  setInterval(() => { if (API.pendientes()) API.sincronizar(); }, 45000);
 })(window);
