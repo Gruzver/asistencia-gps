@@ -468,6 +468,33 @@ tbody tr.resaltada { background: var(--brand-soft); }
 }
 .consentimiento strong { color: var(--text); font-weight: 600; }
 
+/* Medidor de precision GPS en vivo */
+.medidor { margin-top: 22px; }
+
+.medidor-barra {
+  height: 6px;
+  background: var(--surface-3);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.medidor-barra span {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--warn);
+  border-radius: 999px;
+  transition: width .5s ease, background-color .4s ease;
+}
+.medidor-barra span.bien { background: var(--ok); }
+
+.medidor-pie {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 10px;
+  margin-top: 9px;
+  font-size: .78rem;
+  color: var(--text-2);
+}
+
 .girador {
   width: 30px; height: 30px;
   border: 2.5px solid var(--surface-3);

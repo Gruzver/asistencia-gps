@@ -11,11 +11,18 @@ window.CONFIG = {
   // Metros de tolerancia por defecto si el lugar no define radio propio
   RADIO_DEFAULT: 150,
 
-  // Milisegundos de espera maxima por una lectura GPS
-  GPS_TIMEOUT: 20000,
+  // Milisegundos que se insiste esperando que el GPS fije satelites.
+  // No es un plazo de fallo: es cuanto se sigue escuchando lecturas
+  // cada vez mejores antes de quedarse con la mejor lograda.
+  GPS_TIMEOUT: 25000,
 
-  // Si la precision reportada supera esto (m), se avisa al usuario
-  PRECISION_ACEPTABLE: 100,
+  // Precision (m) con la que se corta de inmediato: es una lectura
+  // de satelite y no vale la pena seguir esperando.
+  PRECISION_OBJETIVO: 30,
+
+  // Por encima de esto la lectura se considera de antena o wifi y el
+  // marcaje se rechaza. Una posicion de antena puede errar kilometros.
+  PRECISION_MAXIMA: 150,
 
   // Refresco automatico del panel (ms)
   REFRESCO_PANEL: 30000,

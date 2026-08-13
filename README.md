@@ -110,8 +110,9 @@ Todo en [`config.js`](config.js):
 |---|---|---|
 | `API_URL` | `''` | URL `/exec` del Apps Script. Vacío = modo demo |
 | `RADIO_DEFAULT` | `150` | Metros de tolerancia si el lugar no define radio |
-| `GPS_TIMEOUT` | `20000` | Milisegundos máximos de espera por la lectura GPS |
-| `PRECISION_ACEPTABLE` | `100` | Sobre estos metros de error se avisa al usuario |
+| `GPS_TIMEOUT` | `25000` | Milisegundos que se insiste esperando que el GPS fije satélites |
+| `PRECISION_OBJETIVO` | `30` | Precisión (m) con la que se corta de inmediato |
+| `PRECISION_MAXIMA` | `150` | Por encima de esto se rechaza: es lectura de antena, no de GPS |
 | `REFRESCO_PANEL` | `30000` | Cada cuánto se recarga el panel |
 | `EVENTO` | `'ASUNTA CUSCO'` | Nombre visible del viaje |
 

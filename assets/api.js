@@ -53,11 +53,29 @@
     3: 'TIEMPO_AGOTADO',
   };
 
+  /** Indica si el aparato probablemente carece de chip GPS. */
+  function pareceEscritorio() {
+    const sinTactil = !('ontouchstart' in global) && navigator.maxTouchPoints === 0;
+    const movil = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+    return sinTactil && !movil;
+  }
+
   /**
-   * Pide la posicion del dispositivo con alta precision.
-   * Rechaza con { codigo, mensaje } para que la UI decida.
+   * Obtiene la posicion insistiendo hasta lograr precision real de GPS.
+   *
+   * getCurrentPosition devuelve la PRIMERA lectura disponible, que casi
+   * siempre viene de antena de telefonia o de wifi: llega en un segundo
+   * pero puede errar kilometros. El chip GPS necesita varios segundos
+   * para fijar satelites, y sus lecturas van mejorando.
+   *
+   * Por eso aqui se usa watchPosition: se escuchan lecturas sucesivas,
+   * se conserva la mejor y se corta en cuanto una baja del objetivo. Si
+   * se agota el tiempo se devuelve la mejor obtenida, marcada para que
+   * la interfaz avise de que no es fiable.
+   *
+   * @param {function} onProgreso  Recibe cada mejora para pintarla en vivo.
    */
-  function obtenerUbicacion() {
+  function obtenerUbicacion(onProgreso) {
     return new Promise((resolve, reject) => {
       if (!global.navigator.geolocation) {
         return reject({
@@ -71,20 +89,56 @@
           mensaje: 'La ubicacion solo funciona sobre HTTPS. Abre la pagina con https://',
         });
       }
-      navigator.geolocation.getCurrentPosition(
-        (pos) =>
-          resolve({
+
+      let mejor = null;
+      let vigilancia = null;
+      let cerrado = false;
+
+      function cerrar(exito) {
+        if (cerrado) return;
+        cerrado = true;
+        clearTimeout(reloj);
+        if (vigilancia !== null) navigator.geolocation.clearWatch(vigilancia);
+
+        if (mejor) {
+          mejor.fiable = mejor.precision <= CFG.PRECISION_MAXIMA;
+          mejor.optima = exito;
+          resolve(mejor);
+        } else {
+          reject({
+            codigo: 'TIEMPO_AGOTADO',
+            mensaje: 'No se obtuvo ninguna lectura de ubicacion.',
+          });
+        }
+      }
+
+      vigilancia = navigator.geolocation.watchPosition(
+        function (pos) {
+          const lectura = {
             lat: +pos.coords.latitude.toFixed(6),
             lon: +pos.coords.longitude.toFixed(6),
             precision: Math.round(pos.coords.accuracy),
-          }),
-        (err) =>
-          reject({
-            codigo: GeoError[err.code] || 'DESCONOCIDO',
-            mensaje: err.message,
-          }),
+            marca: pos.timestamp,
+          };
+          // Solo interesa si mejora lo que ya teniamos
+          if (!mejor || lectura.precision < mejor.precision) {
+            mejor = lectura;
+            if (onProgreso) onProgreso(mejor);
+          }
+          if (mejor.precision <= CFG.PRECISION_OBJETIVO) cerrar(true);
+        },
+        function (err) {
+          // Con una lectura previa guardada, un error posterior no invalida
+          if (mejor) return cerrar(false);
+          cerrado = true;
+          clearTimeout(reloj);
+          if (vigilancia !== null) navigator.geolocation.clearWatch(vigilancia);
+          reject({ codigo: GeoError[err.code] || 'DESCONOCIDO', mensaje: err.message });
+        },
         { enableHighAccuracy: true, timeout: CFG.GPS_TIMEOUT, maximumAge: 0 }
       );
+
+      const reloj = setTimeout(function () { cerrar(false); }, CFG.GPS_TIMEOUT);
     });
   }
 
@@ -226,5 +280,7 @@
   };
 
   global.API = API;
-  global.Utils = { distancia, metros, fechaHoy, horaAhora, obtenerUbicacion, pad };
+  global.Utils = {
+    distancia, metros, fechaHoy, horaAhora, obtenerUbicacion, pad, pareceEscritorio,
+  };
 })(window);

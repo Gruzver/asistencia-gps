@@ -97,12 +97,35 @@
     }
   }
 
+  /** Pinta en vivo cuanto ha mejorado la lectura de GPS. */
+  function progresoGPS(lectura) {
+    const p = lectura.precision;
+    // Escala logaritmica: de 2000 m (0%) a 10 m (100%)
+    const pct = Math.max(0, Math.min(100,
+      ((Math.log10(2000) - Math.log10(Math.max(p, 10))) / (Math.log10(2000) - 1)) * 100
+    ));
+    const barra = $('gps-barra');
+    barra.style.width = pct.toFixed(0) + '%';
+    barra.classList.toggle('bien', p <= CONFIG.PRECISION_MAXIMA);
+
+    $('gps-precision').textContent = `precisión ± ${Utils.metros(p)}`;
+    const chip = $('gps-estado');
+    if (p <= CONFIG.PRECISION_OBJETIVO)      { chip.className = 'insignia ok';     chip.textContent = 'GPS fijo'; }
+    else if (p <= CONFIG.PRECISION_MAXIMA)   { chip.className = 'insignia ok';     chip.textContent = 'aceptable'; }
+    else                                      { chip.className = 'insignia fuera';  chip.textContent = 'aún por antena'; }
+  }
+
   async function marcar() {
     mostrar('paso-gps');
+    $('gps-barra').style.width = '0';
+    $('gps-barra').classList.remove('bien');
+    $('gps-precision').textContent = 'esperando primera lectura…';
+    $('gps-estado').className = 'insignia neutra';
+    $('gps-estado').textContent = 'buscando';
 
     let pos;
     try {
-      pos = await Utils.obtenerUbicacion();
+      pos = await Utils.obtenerUbicacion(progresoGPS);
     } catch (g) {
       // Politica: sin ubicacion no se registra la asistencia.
       if (g.codigo === 'PERMISO_DENEGADO') {
@@ -126,6 +149,26 @@
         'Ubicación no disponible',
         'Tu dispositivo no pudo determinar dónde estás.',
         'Verifica que el GPS esté encendido y toca Reintentar.'
+      );
+    }
+
+    // Una lectura de antena puede errar kilometros: registrarla
+    // ensuciaria el mapa y acusaria de "fuera de zona" a alguien que
+    // si estaba presente. Mejor rechazar y pedir reintento.
+    if (!pos.fiable) {
+      return error(
+        'Ubicación imprecisa',
+        `La mejor lectura fue de ± ${Utils.metros(pos.precision)}, ` +
+          'que viene de antena de telefonía y no del GPS.',
+        (Utils.pareceEscritorio()
+          ? '<strong>Estás en una computadora.</strong> No tiene GPS: ' +
+            'calcula la posición por tu conexión a internet y puede errar ' +
+            'kilómetros.<br><br>Abre este enlace <strong>en el celular</strong>.'
+          : '<strong>Para lograr señal de GPS:</strong><br>' +
+            '1. Sal a un espacio abierto, sin techo encima<br>' +
+            '2. Activa la ubicación en modo "Alta precisión"<br>' +
+            '3. Espera unos segundos sin moverte<br>' +
+            '4. Toca Reintentar')
       );
     }
 
@@ -157,10 +200,10 @@
           ' del punto. El personal lo verá señalado.</span>';
       }
 
-      if (pos.precision > CONFIG.PRECISION_ACEPTABLE) {
+      if (pos.precision > CONFIG.PRECISION_OBJETIVO) {
         zona.innerHTML +=
-          '<br><small>Precisión baja (± ' + pos.precision + ' m). ' +
-          'La distancia mostrada puede variar.</small>';
+          '<br><small>Lectura de ± ' + Utils.metros(pos.precision) +
+          '. La distancia puede variar en ese margen.</small>';
       }
 
       mostrar('paso-ok');

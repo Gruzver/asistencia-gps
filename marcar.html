@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#ffffff">
 <meta name="color-scheme" content="light">
 <title>Marcar asistencia</title>
-<link rel="stylesheet" href="assets/style.css?v=5">
+<link rel="stylesheet" href="assets/style.css?v=6">
 </head>
 <body>
 
@@ -52,9 +52,17 @@
     <!-- 3. Obteniendo GPS -->
     <section id="paso-gps" class="oculto">
       <div class="icono esperando"><div class="girador"></div></div>
-      <h1>Obteniendo ubicación…</h1>
-      <p class="sub">Mantén el teléfono quieto unos segundos.<br>
-        Al aire libre es más rápido y preciso.</p>
+      <h1>Buscando satélites…</h1>
+      <p class="sub">Mantén el teléfono quieto y a cielo abierto.<br>
+        La primera lectura es imprecisa y va mejorando.</p>
+
+      <div class="medidor">
+        <div class="medidor-barra"><span id="gps-barra"></span></div>
+        <div class="medidor-pie">
+          <span id="gps-precision">esperando primera lectura…</span>
+          <span id="gps-estado" class="insignia neutra">buscando</span>
+        </div>
+      </div>
     </section>
 
     <!-- 4. Exito -->
@@ -83,9 +91,9 @@
   </div>
 </main>
 
-<script src="config.js?v=5"></script>
-<script src="data/demo.js?v=5"></script>
-<script src="assets/api.js?v=5"></script>
-<script src="assets/marcar.js?v=5"></script>
+<script src="config.js?v=6"></script>
+<script src="data/demo.js?v=6"></script>
+<script src="assets/api.js?v=6"></script>
+<script src="assets/marcar.js?v=6"></script>
 </body>
 </html>
