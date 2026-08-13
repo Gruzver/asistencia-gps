@@ -35,17 +35,17 @@
       const radio = lugar.radio || CONFIG.RADIO_DEFAULT;
       L.circle([lugar.lat, lugar.lon], {
         radius: radio,
-        color: '#2f5fe0',
+        color: '#0071e3',
         weight: 1.5,
-        fillColor: '#2f5fe0',
-        fillOpacity: 0.07,
+        fillColor: '#0071e3',
+        fillOpacity: 0.06,
       }).addTo(capaZonas);
 
       L.marker([lugar.lat, lugar.lon], {
         icon: L.divIcon({
           className: '',
-          html: '<div style="width:13px;height:13px;background:#2f5fe0;border:3px solid #fff;' +
-                'border-radius:50%;box-shadow:0 0 0 1px rgba(0,0,0,.3)"></div>',
+          html: '<div style="width:13px;height:13px;background:#0071e3;border:3px solid #fff;' +
+                'border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,.3)"></div>',
           iconSize: [13, 13],
           iconAnchor: [6, 6],
         }),
@@ -72,7 +72,7 @@
           `${a.hora} · ${a.lugar}<br>` +
           `Distancia: ${Utils.metros(a.distancia)}<br>` +
           `Precisión: ± ${a.precision} m` +
-          (fuera ? '<br><strong style="color:#c3352b">Fuera de zona</strong>' : '')
+          (fuera ? '<br><strong style="color:#d1231b">Fuera de zona</strong>' : '')
       );
 
       m.addTo(capaMarcas);
