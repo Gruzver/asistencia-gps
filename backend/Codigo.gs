@@ -288,13 +288,24 @@ function redirigirAPlataforma_(nfc) {
     );
   }
   var destino = url.replace(/\/+$/, '') + '/marcar.html?id=' + encodeURIComponent(nfc);
+  var d = JSON.stringify(destino);
+
+  // Apps Script sirve esta salida dentro de un iframe, asi que un
+  // location.replace normal navegaria solo el iframe y el usuario se
+  // quedaria viendo el marco de Google. Hay que mover el frame
+  // superior; si el navegador lo bloquea, queda el enlace manual.
   return HtmlService.createHtmlOutput(
-    '<!DOCTYPE html><meta charset="utf-8">' +
-    '<meta name="viewport" content="width=device-width,initial-scale=1">' +
-    '<script>location.replace(' + JSON.stringify(destino) + ')<\/script>' +
-    '<p style="font-family:system-ui;padding:24px">Abriendo…<br>' +
-    '<a href="' + destino + '">Continuar</a></p>'
-  ).addMetaTag('viewport', 'width=device-width, initial-scale=1');
+    '<style>body{font-family:system-ui,sans-serif;padding:32px;text-align:center;' +
+    'color:#131a29}a{display:inline-block;margin-top:14px;padding:13px 22px;' +
+    'background:#2f5fe0;color:#fff;text-decoration:none;border-radius:10px;' +
+    'font-weight:600}</style>' +
+    '<p>Abriendo el registro de asistencia…</p>' +
+    '<a id="ir" href="' + destino + '" target="_top">Continuar</a>' +
+    '<script>(function(){try{window.top.location.href=' + d + ';}' +
+    'catch(e){try{window.location.href=' + d + ';}catch(e2){}}})();<\/script>'
+  )
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+    .addMetaTag('robots', 'noindex, nofollow');
 }
 
 function doGet(e) {
