@@ -23,7 +23,13 @@
     capaMarcas = L.layerGroup().addTo(mapa);
   }
 
-  function pintarMapa() {
+  /**
+   * @param {boolean} ajustarVista  Reencuadrar para abarcar todos los
+   *   puntos. Solo en la primera carga o al pulsar "Centrar": hacerlo
+   *   en cada refresco automatico le arrancaba el zoom al usuario cada
+   *   30 segundos.
+   */
+  function pintarMapa(ajustarVista) {
     capaMarcas.clearLayers();
     capaZonas.clearLayers();
     Object.keys(marcasPorId).forEach((k) => delete marcasPorId[k]);
@@ -81,7 +87,9 @@
     });
 
     if (lugar && lugar.lat != null) puntos.push([lugar.lat, lugar.lon]);
-    if (puntos.length) mapa.fitBounds(L.latLngBounds(puntos).pad(0.25));
+    if (ajustarVista && puntos.length) {
+      mapa.fitBounds(L.latLngBounds(puntos).pad(0.25));
+    }
   }
 
   /* ---------- datos ---------- */
@@ -203,6 +211,8 @@
 
   /* ---------- ciclo ---------- */
 
+  let primeraCarga = true;
+
   async function cargar() {
     try {
       const r = await API.datos();
@@ -218,7 +228,8 @@
       llenarFiltroSecciones();
       pintarMetricas();
       pintarTabla();
-      pintarMapa();
+      pintarMapa(primeraCarga);
+      primeraCarga = false;
       $('ts').textContent = Utils.horaAhora();
     } catch (e) {
       const b = $('banner-error');
@@ -229,7 +240,7 @@
 
   function repintar() {
     pintarTabla();
-    pintarMapa();
+    pintarMapa(false);
   }
 
   document.addEventListener('DOMContentLoaded', () => {
@@ -239,7 +250,18 @@
     $('f-seccion').addEventListener('change', repintar);
     $('f-estado').addEventListener('change', repintar);
     $('btn-csv').addEventListener('click', exportarCSV);
-    $('btn-centrar').addEventListener('click', pintarMapa);
+    $('btn-centrar').addEventListener('click', function () { pintarMapa(true); });
+
+    // Marcaje hecho en otra pestana del mismo navegador: el evento
+    // storage solo llega a las demas pestanas, que es justo el caso.
+    window.addEventListener('storage', function (ev) {
+      if (ev.key === null || ev.key === 'asistencia_gps_demo') cargar();
+    });
+
+    // Al volver a la pestana tras marcar en el movil o en otra ventana
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden) cargar();
+    });
     $('btn-limpiar-demo').addEventListener('click', function () {
       if (!confirm('¿Borrar los marcajes de prueba de este navegador?')) return;
       API.limpiarDemo();

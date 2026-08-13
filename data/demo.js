@@ -36,6 +36,12 @@ window.DEMO_DATA = {
     { id: 'NFC018', nombre: 'Rosa Milagros Delgado Hancco',seccion: '5C', activo: true },
     { id: 'NFC019', nombre: 'Sara Valentina Nunez Machaca',seccion: '5C', activo: true },
     { id: 'NFC020', nombre: 'Tamara Luana Bejar Quispe',   seccion: '5C', activo: true },
+
+    // Cuentas de prueba. A proposito NO aparecen en los marcajes
+    // sembrados de abajo: al marcar con ellas el contador
+    // "Presentes" sube a la vista y el pin es inconfundible.
+    { id: 'PRUEBA01', nombre: 'Gruzver Phocco',  seccion: 'STAFF', activo: true },
+    { id: 'PRUEBA02', nombre: 'Franck Anthony',  seccion: 'STAFF', activo: true },
   ],
 
   // Marcajes sembrados alrededor del Mirador de Yanahuara,
