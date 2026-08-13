@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Panel de asistencia</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header class="barra">
+  <div class="marca"><span class="punto"></span> <span id="titulo-evento">Asistencia GPS</span></div>
+  <nav>
+    <a href="index.html" class="activo">Panel</a>
+    <a href="qr.html">Códigos QR</a>
+  </nav>
+</header>
+
+<div class="envoltura">
+
+  <div id="banner-demo" class="aviso info oculto">
+    <span>●</span>
+    <span><strong>Modo demostración.</strong> Datos ficticios, ninguna persona real.
+      Para conectar tu hoja, pega la URL del Apps Script en <code>config.js</code>.</span>
+  </div>
+  <div id="banner-error" class="aviso malo oculto"></div>
+
+  <div class="metricas">
+    <div class="metrica v-ok">
+      <div class="etiqueta">Presentes</div>
+      <div class="valor" id="m-presentes">--</div>
+      <div class="pie" id="m-presentes-pie">de -- registradas</div>
+    </div>
+    <div class="metrica">
+      <div class="etiqueta">En zona</div>
+      <div class="valor" id="m-enzona">--</div>
+      <div class="pie">dentro del radio</div>
+    </div>
+    <div class="metrica v-danger">
+      <div class="etiqueta">Fuera de zona</div>
+      <div class="valor" id="m-fuera">--</div>
+      <div class="pie">requieren revisión</div>
+    </div>
+    <div class="metrica v-warn">
+      <div class="etiqueta">Faltan</div>
+      <div class="valor" id="m-faltan">--</div>
+      <div class="pie">sin marcar hoy</div>
+    </div>
+    <div class="metrica">
+      <div class="etiqueta">Lugar activo</div>
+      <div class="valor" style="font-size:1.05rem;line-height:1.35;margin-top:7px" id="m-lugar">--</div>
+      <div class="pie" id="m-lugar-pie"></div>
+    </div>
+  </div>
+
+  <div class="rejilla">
+
+    <div class="panel">
+      <header>
+        <h2>Mapa de marcajes</h2>
+        <div class="der">
+          <button class="boton" id="btn-centrar">Centrar</button>
+        </div>
+      </header>
+      <div id="mapa"></div>
+    </div>
+
+    <div class="panel">
+      <header>
+        <h2>Registro</h2>
+        <div class="der">
+          <select id="f-seccion"><option value="">Todas</option></select>
+          <select id="f-estado">
+            <option value="">Todo estado</option>
+            <option value="EN_ZONA">En zona</option>
+            <option value="FUERA_ZONA">Fuera de zona</option>
+          </select>
+          <button class="boton" id="btn-csv">CSV</button>
+        </div>
+      </header>
+      <div class="tabla-scroll">
+        <table>
+          <thead>
+            <tr><th>Hora</th><th>Nombre</th><th>Sec.</th><th>Distancia</th><th>Estado</th></tr>
+          </thead>
+          <tbody id="cuerpo-tabla"></tbody>
+        </table>
+        <div class="vacio oculto" id="tabla-vacia">Sin marcajes todavía.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="panel" style="margin-top:18px">
+    <header>
+      <h2>Pendientes de marcar</h2>
+      <div class="der"><span class="insignia neutra" id="chip-faltan">--</span></div>
+    </header>
+    <div class="tabla-scroll" style="max-height:280px">
+      <table>
+        <thead><tr><th>Código</th><th>Nombre</th><th>Sección</th></tr></thead>
+        <tbody id="cuerpo-faltan"></tbody>
+      </table>
+      <div class="vacio oculto" id="faltan-vacia">Todas marcaron. ✓</div>
+    </div>
+  </div>
+
+  <p style="text-align:center;color:var(--text-dim);font-size:.76rem;margin:22px 0">
+    Actualizado <span id="ts">--</span> · se refresca solo cada 30 s
+  </p>
+
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="config.js"></script>
+<script src="data/demo.js"></script>
+<script src="assets/api.js"></script>
+<script src="assets/dashboard.js"></script>
+</body>
+</html>

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Códigos QR</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header class="barra">
+  <div class="marca"><span class="punto"></span> <span id="titulo-evento">Asistencia GPS</span></div>
+  <nav>
+    <a href="index.html">Panel</a>
+    <a href="qr.html" class="activo">Códigos QR</a>
+  </nav>
+</header>
+
+<div class="envoltura">
+
+  <div class="aviso info no-imprimir">
+    <span>◈</span>
+    <span>Cada QR abre la página de marcaje con el código de esa persona.
+      Imprime esta hoja y recorta, o pega cada código en su credencial.
+      <strong>Usa "Imprimir" para obtener el PDF.</strong></span>
+  </div>
+
+  <div class="panel no-imprimir" style="margin-bottom:18px">
+    <header>
+      <h2>Configuración</h2>
+      <div class="der">
+        <select id="f-seccion"><option value="">Todas las secciones</option></select>
+        <button class="boton" id="btn-imprimir">Imprimir</button>
+      </div>
+    </header>
+    <div style="padding:15px 17px">
+      <label style="font-size:.78rem;color:var(--text-dim);font-weight:600;display:block;margin-bottom:6px">
+        URL base de la plataforma
+      </label>
+      <input type="text" id="url-base" style="width:100%;font-family:var(--mono);font-size:.78rem">
+      <p style="font-size:.76rem;color:var(--text-dim);margin:8px 0 0">
+        Se detecta sola. Cámbiala solo si vas a imprimir para otro despliegue.
+      </p>
+    </div>
+  </div>
+
+  <div class="rejilla-qr" id="rejilla"></div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="config.js"></script>
+<script src="data/demo.js"></script>
+<script src="assets/api.js"></script>
+<script src="assets/qr.js"></script>
+</body>
+</html>

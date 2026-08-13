@@ -1,0 +1,11 @@
+# Configuracion local con la URL real del backend
+config.local.js
+
+# Datos reales exportados: nunca deben entrar al repositorio
+*.csv
+datos-reales/
+personas-reales.js
+
+node_modules/
+.DS_Store
+*.log

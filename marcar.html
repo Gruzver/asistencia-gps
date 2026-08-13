@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Marcar asistencia</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<main class="marcaje">
+  <div class="tarjeta-marcaje">
+
+    <!-- 1. Cargando datos de la persona -->
+    <section id="paso-carga">
+      <div class="icono esperando"><div class="girador"></div></div>
+      <h1>Cargando…</h1>
+      <p class="sub">Verificando tu registro</p>
+    </section>
+
+    <!-- 2. Consentimiento previo -->
+    <section id="paso-consentimiento" class="oculto">
+      <div class="evento" id="c-evento"></div>
+      <h1 id="c-nombre"></h1>
+      <p class="sub" id="c-seccion"></p>
+
+      <div class="datos-fila">
+        <span class="k">Lugar</span><span class="v" id="c-lugar"></span>
+      </div>
+      <div class="datos-fila">
+        <span class="k">Fecha</span><span class="v" id="c-fecha"></span>
+      </div>
+
+      <div class="consentimiento">
+        Al marcar se registrará <strong>tu ubicación GPS</strong> junto con la hora,
+        para confirmar que estuviste en el punto de encuentro. El dato se usa solo
+        para el control de asistencia de este viaje y lo ve únicamente el personal
+        a cargo.
+      </div>
+
+      <button class="boton primario grande" id="btn-marcar">
+        Permitir ubicación y marcar
+      </button>
+      <p class="sub" style="margin:12px 0 0;font-size:.76rem">
+        Tu teléfono te pedirá confirmar el permiso.
+      </p>
+    </section>
+
+    <!-- 3. Obteniendo GPS -->
+    <section id="paso-gps" class="oculto">
+      <div class="icono esperando"><div class="girador"></div></div>
+      <h1>Obteniendo ubicación…</h1>
+      <p class="sub">Mantén el teléfono quieto unos segundos.<br>
+        Al aire libre es más rápido y preciso.</p>
+    </section>
+
+    <!-- 4. Exito -->
+    <section id="paso-ok" class="oculto">
+      <div class="icono bueno">✓</div>
+      <h1>Asistencia registrada</h1>
+      <p class="sub" id="ok-nombre"></p>
+
+      <div class="datos-fila"><span class="k">Lugar</span><span class="v" id="ok-lugar"></span></div>
+      <div class="datos-fila"><span class="k">Hora</span><span class="v" id="ok-hora"></span></div>
+      <div class="datos-fila"><span class="k">Distancia al punto</span><span class="v" id="ok-distancia"></span></div>
+      <div class="datos-fila"><span class="k">Precisión GPS</span><span class="v" id="ok-precision"></span></div>
+
+      <div id="ok-zona" style="margin-top:18px"></div>
+    </section>
+
+    <!-- 5. Error -->
+    <section id="paso-error" class="oculto">
+      <div class="icono malo" id="e-icono">!</div>
+      <h1 id="e-titulo">No se pudo marcar</h1>
+      <p class="sub" id="e-mensaje"></p>
+      <div id="e-ayuda" class="consentimiento oculto"></div>
+      <button class="boton primario grande" id="btn-reintentar">Reintentar</button>
+    </section>
+
+  </div>
+</main>
+
+<script src="config.js"></script>
+<script src="data/demo.js"></script>
+<script src="assets/api.js"></script>
+<script src="assets/marcar.js"></script>
+</body>
+</html>
