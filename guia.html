@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-title" content="Asistencia">
 <title>Panel del guía</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<link rel="stylesheet" href="assets/style.css?v=17">
+<link rel="stylesheet" href="assets/style.css?v=18">
 </head>
 <body>
 
@@ -53,6 +53,17 @@
       <p>Al llegar a un punto, abre la parada y el grupo podrá marcar.</p>
       <button class="boton primario grande" id="btn-abrir">Tomar asistencia</button>
       <div class="nota" id="pie-precarga"></div>
+
+      <div class="acceso-alumnos">
+        <div class="etiqueta-mini">Enlace para los alumnos</div>
+        <code id="enlace-alumnos"></code>
+        <div class="acceso-botones">
+          <button class="boton chico" id="btn-copiar-enlace">Copiar enlace</button>
+          <button class="boton chico" id="btn-compartir-enlace">Compartir</button>
+        </div>
+        <p class="nota">Mándalo por WhatsApp al grupo. Cada alumno lo abre una vez,
+          escanea su pulsera y ya no necesita el enlace nunca más.</p>
+      </div>
     </div>
   </section>
 
@@ -176,12 +187,12 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=17"></script>
-<script src="assets/geo.js?v=17"></script>
-<script src="assets/almacen.js?v=17"></script>
-<script src="assets/datos.js?v=17"></script>
-<script src="assets/auth.js?v=17"></script>
-<script src="assets/escaner.js?v=17"></script>
-<script src="assets/guia.js?v=17"></script>
+<script src="config.js?v=18"></script>
+<script src="assets/geo.js?v=18"></script>
+<script src="assets/almacen.js?v=18"></script>
+<script src="assets/datos.js?v=18"></script>
+<script src="assets/auth.js?v=18"></script>
+<script src="assets/escaner.js?v=18"></script>
+<script src="assets/guia.js?v=18"></script>
 </body>
 </html>

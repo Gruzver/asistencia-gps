@@ -444,6 +444,46 @@
   $('btn-centrar').addEventListener('click', () => { ajustado = false; refrescar(); });
   $('btn-escanear').addEventListener('click', abrirEscaner);
   $('btn-cerrar-escaner').addEventListener('click', cerrarEscaner);
+  /* ------------------------------------------------------------
+     Enlace de acceso para los alumnos.
+
+     El guia es quien lo reparte, asi que lo tiene a mano aqui en
+     vez de tener que ir a la pagina de codigos.
+     ------------------------------------------------------------ */
+  const enlaceAlumnos = () =>
+    location.href.replace(/\/[^/]*(\?.*)?$/, '') + '/marcar.html';
+
+  $('enlace-alumnos').textContent = enlaceAlumnos();
+
+  $('btn-copiar-enlace').addEventListener('click', async function () {
+    try {
+      await navigator.clipboard.writeText(enlaceAlumnos());
+      this.textContent = 'Copiado ✓';
+    } catch (e) {
+      const r = document.createRange();
+      r.selectNodeContents($('enlace-alumnos'));
+      const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+      this.textContent = 'Copia con Ctrl+C';
+    }
+    setTimeout(() => { this.textContent = 'Copiar enlace'; }, 2200);
+  });
+
+  if (!navigator.share) {
+    $('btn-compartir-enlace').classList.add('oculto');
+  } else {
+    $('btn-compartir-enlace').addEventListener('click', async () => {
+      try {
+        await navigator.share({
+          title: 'Asistencia del viaje',
+          text: 'Abre este enlace para marcar tu asistencia:',
+          url: enlaceAlumnos(),
+        });
+      } catch (e) {
+        if (e && e.name !== 'AbortError') alert('No se pudo compartir.');
+      }
+    });
+  }
+
   $('btn-yo').addEventListener('click', abrirDialogoYo);
   $('btn-yo-cerrar').addEventListener('click', () => $('dlg-yo').classList.add('oculta'));
   $('btn-salir').addEventListener('click', () => {
