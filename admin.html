@@ -8,7 +8,7 @@
 <meta name="color-scheme" content="light">
 <link rel="icon" href="icon-192.png" type="image/png">
 <title>Administración</title>
-<link rel="stylesheet" href="assets/style.css?v=14">
+<link rel="stylesheet" href="assets/style.css?v=15">
 </head>
 <body>
 
@@ -88,10 +88,19 @@
 
   <!-- Pulseras -->
   <div class="panel">
-    <header><h2>Pulseras</h2></header>
+    <header>
+      <h2>Pulseras</h2>
+      <div class="der">
+        <button class="boton primario chico" id="btn-escanear-pulseras">
+          Escanear lote
+        </button>
+      </div>
+    </header>
     <div class="cuerpo">
       <p class="nota">Solo se pueden activar pulseras dadas de alta aquí.
-        Eso corta el atajo de adivinar números correlativos.</p>
+        Eso corta el atajo de adivinar números correlativos.
+        <strong>Cuando llegue un lote nuevo, escanéalo</strong> — es más rápido
+        y no se cuelan erratas de tecleo.</p>
       <div class="fila-form">
         <input type="text" id="in-prefijo" placeholder="Prefijo" value="PL" style="max-width:110px">
         <input type="number" id="in-desde" placeholder="Desde" value="1" min="1" style="max-width:110px">
@@ -138,12 +147,34 @@
 
 </main>
 
+<!-- Escáner de lote a pantalla completa -->
+<div class="escaner oculta" id="v-escaner">
+  <video id="video" playsinline muted></video>
+  <canvas id="lienzo" class="oculto"></canvas>
+
+  <div class="escaner-marco"><div class="escaner-mira"></div></div>
+
+  <div class="escaner-arriba">
+    <div class="escaner-conteo"><span id="esc-nuevas">0</span> nuevas</div>
+    <button class="boton chico" id="btn-cerrar-escaner">Terminar</button>
+  </div>
+
+  <div class="escaner-abajo">
+    <div class="escaner-mensaje" id="esc-mensaje">Apunta al código de la pulsera</div>
+    <div class="escaner-ultimos" id="esc-ultimos"></div>
+    <button class="boton primario grande oculto" id="btn-guardar-lote"
+            style="margin-top:16px;max-width:340px">Guardar</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=14"></script>
-<script src="assets/geo.js?v=14"></script>
-<script src="assets/almacen.js?v=14"></script>
-<script src="assets/datos.js?v=14"></script>
-<script src="assets/auth.js?v=14"></script>
-<script src="assets/admin.js?v=14"></script>
+<script src="config.js?v=15"></script>
+<script src="assets/geo.js?v=15"></script>
+<script src="assets/escaner.js?v=15"></script>
+<script src="assets/almacen.js?v=15"></script>
+<script src="assets/datos.js?v=15"></script>
+<script src="assets/auth.js?v=15"></script>
+<script src="assets/admin.js?v=15"></script>
 </body>
 </html>

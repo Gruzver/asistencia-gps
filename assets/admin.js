@@ -203,6 +203,95 @@
              () => `${codigos.length} pulseras dadas de alta (${codigos[0]} … ${codigos[codigos.length - 1]}).`);
   });
 
+  /* ============================================================
+     Alta de un lote de pulseras por camara.
+
+     Al llegar stock nuevo hay que registrar que numeros existen.
+     Teclearlos uno a uno es lento y cuela erratas; escanearlos en
+     cadena no. Se acumulan en memoria y se guardan de una vez, para
+     no hacer una escritura por pulsera.
+     ============================================================ */
+
+  let escaner = null;
+  const loteNuevas = [];        // orden de escaneo, sin repetir
+  let yaExistentes = new Set();
+
+  function avisoEsc(texto, clase) {
+    const el = $('esc-mensaje');
+    el.textContent = texto;
+    el.className = 'escaner-mensaje ' + (clase || '');
+    if (navigator.vibrate) navigator.vibrate(clase === 'mal' ? [70, 60, 70] : 45);
+  }
+
+  function pintarLote() {
+    $('esc-nuevas').textContent = loteNuevas.length;
+    $('esc-ultimos').innerHTML = loteNuevas.slice(-4).reverse()
+      .map((c) => `<div class="reciente bien">${c}</div>`).join('');
+    $('btn-guardar-lote').classList.toggle('oculto', loteNuevas.length === 0);
+    $('btn-guardar-lote').textContent =
+      `Guardar ${loteNuevas.length} pulsera${loteNuevas.length === 1 ? '' : 's'}`;
+  }
+
+  function alEscanearPulsera(texto) {
+    const codigo = Escaner.codigoDe(texto);
+    if (!codigo) return avisoEsc('Código no reconocido', 'mal');
+    if (yaExistentes.has(codigo)) return avisoEsc(`${codigo} — ya estaba dada de alta`, 'aviso');
+    if (loteNuevas.includes(codigo)) return avisoEsc(`${codigo} — ya la escaneaste`, 'aviso');
+
+    loteNuevas.push(codigo);
+    avisoEsc(codigo, 'bien');
+    pintarLote();
+  }
+
+  async function abrirEscanerPulseras() {
+    loteNuevas.length = 0;
+    yaExistentes = new Set((await Datos.pulserasTodas()).map((p) => p.codigo));
+    pintarLote();
+    avisoEsc('Apunta al código de la pulsera');
+    $('v-escaner').classList.remove('oculta');
+
+    if (!escaner) {
+      escaner = new Escaner($('video'), $('lienzo'));
+      escaner.alLeer = alEscanearPulsera;
+    }
+    try {
+      await escaner.iniciar();
+    } catch (e) {
+      avisoEsc(e.codigo === 'PERMISO_DENEGADO'
+        ? 'Permiso de cámara denegado. Actívalo en los ajustes del navegador.'
+        : 'No se pudo abrir la cámara: ' + (e.mensaje || ''), 'mal');
+    }
+  }
+
+  function cerrarEscanerPulseras() {
+    if (escaner) escaner.detener();
+    $('v-escaner').classList.add('oculta');
+  }
+
+  $('btn-escanear-pulseras').addEventListener('click', abrirEscanerPulseras);
+
+  $('btn-cerrar-escaner').addEventListener('click', () => {
+    if (loteNuevas.length &&
+        !confirm(`Tienes ${loteNuevas.length} pulseras escaneadas sin guardar.\n\n` +
+                 '¿Salir y descartarlas?')) return;
+    cerrarEscanerPulseras();
+  });
+
+  $('btn-guardar-lote').addEventListener('click', async function () {
+    this.disabled = true;
+    const n = loteNuevas.length;
+    try {
+      await Datos.cargarPulseras(loteNuevas.slice());
+      cerrarEscanerPulseras();
+      await recargar();
+      alert(`${n} pulsera${n === 1 ? '' : 's'} dada${n === 1 ? '' : 's'} de alta.`);
+    } catch (e) {
+      alert('No se pudo guardar: ' + (e.message || e.codigo));
+    } finally {
+      this.disabled = false;
+    }
+  });
+
   $('in-pulseras-lista').addEventListener('input', () => {
     const n = $('in-pulseras-lista').value.split('\n')
       .map((x) => x.trim()).filter(Boolean).length;
