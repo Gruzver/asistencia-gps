@@ -516,6 +516,18 @@ tbody tr:last-child td { border-bottom: none; }
   font-size: .76rem; color: var(--warn);
 }
 
+/* Aviso para guardar la app en la pantalla de inicio */
+.instalar {
+  margin-top: 20px; padding: 16px 18px;
+  background: var(--brand-soft); border-radius: 14px; text-align: left;
+}
+.instalar-titulo {
+  font-size: .9rem; font-weight: 600; color: var(--brand); margin-bottom: 6px;
+}
+.instalar-texto { font-size: .82rem; color: var(--text-2); line-height: 1.5; }
+.instalar .boton { margin-top: 12px; }
+.instalar .boton.texto { margin-top: 4px; font-size: .78rem; }
+
 /* Visor de camara dentro de la tarjeta del alumno */
 .visor {
   position: relative; width: 100%; aspect-ratio: 1;

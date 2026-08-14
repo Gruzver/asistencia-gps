@@ -346,9 +346,54 @@
       z.innerHTML = '';
     }
     ir('p-ok');
+    // Con el marcaje ya resuelto es cuando hay atencion disponible
+    // para proponer guardarlo en la pantalla de inicio.
+    setTimeout(proponerInstalar, 900);
   }
 
   /* ---------- cola pendiente ---------- */
+
+  /* ------------------------------------------------------------
+     Aviso para guardar la app en la pantalla de inicio.
+
+     El alumno llega la primera vez por el cartel de acceso, pero en
+     la segunda parada no tiene forma de volver salvo buscar el
+     cartel otra vez o rebuscar en el historial. Guardarlo en la
+     pantalla de inicio lo convierte en un icono mas del telefono, y
+     ademas hace que el service worker quede activo, que es lo que
+     permite marcar sin señal.
+
+     Se muestra al terminar un marcaje —cuando ya salio bien y hay
+     atencion disponible— y nunca si ya se abrio como app instalada.
+     ------------------------------------------------------------ */
+  const CLAVE_INSTALAR = 'agps_instalar_visto';
+
+  function proponerInstalar() {
+    const instalada = window.matchMedia('(display-mode: standalone)').matches ||
+                      window.navigator.standalone === true;
+    let visto = false;
+    try { visto = localStorage.getItem(CLAVE_INSTALAR) === '1'; } catch (e) {}
+    if (instalada || visto) return;
+
+    const ua = navigator.userAgent;
+    $('instalar-pasos').innerHTML =
+      /iPhone|iPad|iPod/i.test(ua)
+        ? 'Toca <strong>Compartir</strong> abajo &#8593; y elige ' +
+          '<strong>Añadir a pantalla de inicio</strong>.'
+        : /Android/i.test(ua)
+          ? 'Toca el menú <strong>⋮</strong> arriba y elige ' +
+            '<strong>Añadir a pantalla de inicio</strong>.'
+          : 'Guarda esta página en tus favoritos para volver rápido.';
+    $('instalar').classList.remove('oculto');
+  }
+
+  $('btn-instalar-ok').addEventListener('click', () => {
+    $('instalar').classList.add('oculto');
+  });
+  $('btn-instalar-no').addEventListener('click', () => {
+    try { localStorage.setItem(CLAVE_INSTALAR, '1'); } catch (e) {}
+    $('instalar').classList.add('oculto');
+  });
 
   Datos.alCambiarPendientes(function (n) {
     const c = $('aviso-cola');
