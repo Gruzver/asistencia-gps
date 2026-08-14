@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-title" content="Asistencia">
 <title>Panel del guía</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<link rel="stylesheet" href="assets/style.css?v=18">
+<link rel="stylesheet" href="assets/style.css?v=19">
 </head>
 <body>
 
@@ -24,7 +24,9 @@
   </div>
   <div class="barra-estado">
     <span class="insignia neutra oculto" id="chip-red">sin señal</span>
-    <span class="insignia neutra oculto" id="chip-pendientes"></span>
+    <button class="insignia fuera oculto" id="chip-pendientes"
+            style="border:none;cursor:pointer;font:inherit"></button>
+    <button class="boton chico" id="btn-registro">Registro</button>
     <a class="boton chico" href="historial.html">Historial</a>
     <button class="boton chico" id="btn-yo">Guía</button>
   </div>
@@ -42,7 +44,8 @@
     <span>⇩</span>
     <span><strong>Aún no descargas este grupo.</strong> Hazlo con señal, antes de
       salir: sin eso la pantalla queda vacía donde no haya cobertura.
-      <button class="boton chico" id="btn-precargar">Descargar ahora</button></span>
+      <button class="boton chico" id="btn-precargar">Descargar este grupo</button>
+      <button class="boton chico" id="btn-precargar-todos">Descargar todos</button></span>
   </div>
 
   <!-- Sin parada -->
@@ -53,6 +56,11 @@
       <p>Al llegar a un punto, abre la parada y el grupo podrá marcar.</p>
       <button class="boton primario grande" id="btn-abrir">Tomar asistencia</button>
       <div class="nota" id="pie-precarga"></div>
+
+      <div class="ultima-parada oculto" id="caja-reabrir">
+        <span class="nota" id="texto-ultima"></span>
+        <button class="boton chico" id="btn-reabrir">Reabrir</button>
+      </div>
 
       <div class="acceso-alumnos">
         <div class="etiqueta-mini">Enlace para los alumnos</div>
@@ -125,6 +133,53 @@
   </section>
 </main>
 
+<!-- Diálogo: registro del grupo -->
+<div class="capa oculta" id="dlg-registro">
+  <div class="dialogo ancho">
+    <h2>Registro del grupo</h2>
+    <p class="sub">Quién ya activó su pulsera y quién no. Si alguien se registró
+      con el nombre equivocado, libera su pulsera y que vuelva a escanear.</p>
+
+    <div class="resumen-chips" style="margin-bottom:14px">
+      <span class="insignia ok"     id="reg-activos">0 activados</span>
+      <span class="insignia neutra" id="reg-pendientes">0 sin activar</span>
+    </div>
+
+    <input type="search" id="reg-buscar" placeholder="Buscar por nombre…"
+           autocomplete="off" style="width:100%">
+    <div class="tabla-scroll" style="max-height:44dvh;margin-top:12px">
+      <ul class="lista-personas lista-encuadrada" id="lista-registro"></ul>
+    </div>
+
+    <div class="acciones"><button class="boton" id="btn-registro-cerrar">Cerrar</button></div>
+  </div>
+</div>
+
+<!-- Diálogo: pendientes de subir -->
+<div class="capa oculta" id="dlg-pendientes">
+  <div class="dialogo">
+    <h2>Marcajes por subir</h2>
+    <p class="sub">Se enviarán solos al recuperar señal. Si el teléfono se va a
+      quedar sin batería, descarga el respaldo y pásalo a otro dispositivo.</p>
+
+    <div class="tabla-scroll" style="max-height:34dvh">
+      <ul class="lista-personas lista-encuadrada" id="lista-pendientes"></ul>
+    </div>
+
+    <div class="acciones" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="boton chico" id="btn-exportar-pend">Descargar respaldo</button>
+        <button class="boton chico" id="btn-importar-pend">Recuperar respaldo</button>
+        <input type="file" id="archivo-pend" accept="application/json,.json" class="oculto">
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="boton chico" id="btn-sincronizar">Reintentar envío</button>
+        <button class="boton" id="btn-pend-cerrar">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Diálogo: quién soy -->
 <div class="capa oculta" id="dlg-yo">
   <div class="dialogo">
@@ -187,12 +242,12 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=18"></script>
-<script src="assets/geo.js?v=18"></script>
-<script src="assets/almacen.js?v=18"></script>
-<script src="assets/datos.js?v=18"></script>
-<script src="assets/auth.js?v=18"></script>
-<script src="assets/escaner.js?v=18"></script>
-<script src="assets/guia.js?v=18"></script>
+<script src="config.js?v=19"></script>
+<script src="assets/geo.js?v=19"></script>
+<script src="assets/almacen.js?v=19"></script>
+<script src="assets/datos.js?v=19"></script>
+<script src="assets/auth.js?v=19"></script>
+<script src="assets/escaner.js?v=19"></script>
+<script src="assets/guia.js?v=19"></script>
 </body>
 </html>

@@ -330,6 +330,16 @@
   });
 
   $('btn-imprimir').addEventListener('click', () => window.print());
+  $('btn-purgar').addEventListener('click', () => {
+    const dias = Number($('sel-retencion').value);
+    if (!confirm(`¿Borrar los marcajes anteriores a ${dias} días?\n\n` +
+                 'Se pierden ubicación y hora de esos registros, para siempre.\n' +
+                 'Asegúrate de haber exportado el informe desde Historial.')) return;
+    if (!confirm('Última confirmación: esto no se puede deshacer.')) return;
+    conAviso(() => Datos.purgarMarcajes(dias),
+             (n) => n ? `${n} marcajes borrados.` : 'No había marcajes tan antiguos.');
+  });
+
   $('sel-grupo-guias').addEventListener('change', pintarGuias);
   $('sel-grupo-estado').addEventListener('change', pintarEstado);
 

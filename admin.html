@@ -8,7 +8,7 @@
 <meta name="color-scheme" content="light">
 <link rel="icon" href="icon-192.png" type="image/png">
 <title>Administración</title>
-<link rel="stylesheet" href="assets/style.css?v=18">
+<link rel="stylesheet" href="assets/style.css?v=19">
 </head>
 <body>
 
@@ -145,6 +145,28 @@
     </div>
   </div>
 
+  <!-- Retención de datos -->
+  <div class="panel">
+    <header><h2>Retención de datos</h2></header>
+    <div class="cuerpo">
+      <p class="nota">La Ley 29733 no permite conservar indefinidamente la
+        ubicación de menores. Terminado un viaje y exportado el informe, borra
+        los marcajes antiguos. <strong>Se borra la ubicación y la hora; los
+        alumnos, grupos y pulseras se conservan.</strong></p>
+      <div class="fila-form">
+        <select id="sel-retencion">
+          <option value="30">Anteriores a 30 días</option>
+          <option value="90" selected>Anteriores a 90 días</option>
+          <option value="180">Anteriores a 180 días</option>
+          <option value="365">Anteriores a 1 año</option>
+        </select>
+        <button class="boton" id="btn-purgar">Borrar marcajes antiguos</button>
+      </div>
+      <p class="nota">Exporta primero desde <a href="historial.html">Historial</a>:
+        esto no se puede deshacer.</p>
+    </div>
+  </div>
+
 </main>
 
 <!-- Escáner de lote a pantalla completa -->
@@ -169,12 +191,12 @@
 
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=18"></script>
-<script src="assets/geo.js?v=18"></script>
-<script src="assets/escaner.js?v=18"></script>
-<script src="assets/almacen.js?v=18"></script>
-<script src="assets/datos.js?v=18"></script>
-<script src="assets/auth.js?v=18"></script>
-<script src="assets/admin.js?v=18"></script>
+<script src="config.js?v=19"></script>
+<script src="assets/geo.js?v=19"></script>
+<script src="assets/escaner.js?v=19"></script>
+<script src="assets/almacen.js?v=19"></script>
+<script src="assets/datos.js?v=19"></script>
+<script src="assets/auth.js?v=19"></script>
+<script src="assets/admin.js?v=19"></script>
 </body>
 </html>

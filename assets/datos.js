@@ -269,6 +269,29 @@
       return p;
     },
 
+    async reabrirParada(paradaId) {
+      const d = this._leer();
+      const p = d.paradas.find((x) => x.id === paradaId);
+      if (!p) throw new ErrorDatos('PARADA_NO_EXISTE');
+      // No puede haber dos abiertas del mismo grupo: el alumno no
+      // debe tener que elegir a cual marca.
+      if (d.paradas.some((x) => x.grupo_id === p.grupo_id && !x.cerrada_en)) {
+        throw new ErrorDatos('YA_HAY_PARADA_ABIERTA');
+      }
+      p.cerrada_en = null;
+      this._guardar(d);
+      return p;
+    },
+
+    async purgarMarcajes(dias) {
+      const d = this._leer();
+      const limite = Date.now() - dias * 86400000;
+      const antes = d.marcajes.length;
+      d.marcajes = d.marcajes.filter((m) => new Date(m.creado_en).getTime() >= limite);
+      this._guardar(d);
+      return antes - d.marcajes.length;
+    },
+
     async progreso(paradaId) {
       const d = this._leer();
       const parada = d.paradas.find((p) => p.id === paradaId);
@@ -566,6 +589,27 @@
       return data;
     },
 
+    async reabrirParada(paradaId) {
+      const sb = this._init();
+      const { data: p } = await sb.from('parada').select('*').eq('id', paradaId).single();
+      if (!p) throw new ErrorDatos('PARADA_NO_EXISTE');
+      const { data: abiertas } = await sb.from('parada').select('id')
+        .eq('grupo_id', p.grupo_id).is('cerrada_en', null);
+      if (abiertas && abiertas.length) throw new ErrorDatos('YA_HAY_PARADA_ABIERTA');
+      const { data, error } = await sb.from('parada')
+        .update({ cerrada_en: null }).eq('id', paradaId).select().single();
+      if (error) throw new ErrorDatos('REABRIR_PARADA', error.message);
+      return data;
+    },
+
+    async purgarMarcajes(dias) {
+      const limite = new Date(Date.now() - dias * 86400000).toISOString();
+      const { data, error } = await this._init().from('marcaje')
+        .delete().lt('creado_en', limite).select('id');
+      if (error) throw new ErrorDatos('PURGAR', error.message);
+      return (data || []).length;
+    },
+
     async progreso(paradaId) {
       const sb = this._init();
       const { data: par } = await sb.from('parada').select('*').eq('id', paradaId).single();
@@ -735,6 +779,43 @@
     paradasDe(g)     { return conCache('paradas_' + g, () => motor.paradasDe(g), []); },
     marcajesDe(g)    { return conCache('marcajes_' + g, () => motor.marcajesDe(g), []); },
     suscribir(p, cb) { return motor.suscribir(p, cb); },
+    reabrirParada(x)  { return motor.reabrirParada(x); },
+    purgarMarcajes(d) { return motor.purgarMarcajes(d); },
+
+    /** Descarga varios grupos de una vez, antes de salir. */
+    async precargarVarios(ids) {
+      const salida = [];
+      for (const id of ids) {
+        try { salida.push({ id, ok: true, datos: await API.precargar(id) }); }
+        catch (e) { salida.push({ id, ok: false, error: e.message || e.codigo }); }
+      }
+      return salida;
+    },
+
+    /* Respaldo de lo pendiente de subir. Si el telefono del guia
+       muere, lo que no se sincronizo se pierde; poder exportarlo
+       —y recuperarlo en otro telefono— es la unica red de seguridad. */
+    exportarPendientes() {
+      return JSON.stringify({
+        version: 1,
+        generado: new Date().toISOString(),
+        dispositivo: deviceId(),
+        operaciones: Bandeja.todas(),
+      }, null, 2);
+    },
+
+    importarPendientes(texto) {
+      let d;
+      try { d = JSON.parse(texto); } catch (e) { throw new ErrorDatos('ARCHIVO_INVALIDO'); }
+      if (!d || !Array.isArray(d.operaciones)) throw new ErrorDatos('ARCHIVO_INVALIDO');
+      let n = 0;
+      d.operaciones.forEach((op) => {
+        if (!op || !op.tipo) return;
+        Bandeja.poner(op);   // la llave evita duplicar lo ya encolado
+        n++;
+      });
+      return n;
+    },
 
     esParadaLocal: (id) => typeof id === 'string' && id.startsWith('local-'),
 

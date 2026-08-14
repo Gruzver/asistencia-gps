@@ -16,7 +16,7 @@
    haberla abierto nunca no tiene nada que cachear.
    ============================================================ */
 
-const VERSION = 'agps-v18';
+const VERSION = 'agps-v19';
 const CACHE = VERSION;
 
 const PROPIOS = [

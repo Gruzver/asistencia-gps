@@ -20,7 +20,7 @@
   let mapa, capaMarcas, capaZona;
   let grupoId = null, parada = null, desuscribir = null;
   let posDialogo = null, radioElegido = CONFIG.RADIO_DEFAULT, ajustado = false;
-  let yo = null, escaner = null, ultimoProgreso = null;
+  let yo = null, escaner = null, ultimoProgreso = null, ultimaCerrada = null;
   const recientes = [];
 
   const guardar = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
@@ -189,6 +189,19 @@
     if (!parada) {
       $('v-activo').classList.add('oculto');
       $('v-inactivo').classList.remove('oculto');
+
+      // Ofrecer reabrir la ultima: si alguien llego tarde, crear otra
+      // parada con el mismo nombre ensuciaria el historial.
+      ultimaCerrada = null;
+      try {
+        ultimaCerrada = (await Datos.paradasDe(id)).find((p) => p.cerrada_en) || null;
+      } catch (e) {}
+      $('caja-reabrir').classList.toggle('oculto', !ultimaCerrada);
+      if (ultimaCerrada) {
+        $('texto-ultima').textContent =
+          `Última: «${ultimaCerrada.nombre}», cerrada ${Geo.hora(ultimaCerrada.cerrada_en)}`;
+      }
+
       pintarRed();
       return;
     }
@@ -349,6 +362,132 @@
     refrescar();
   }
 
+  /* ============================================================
+     Registro del grupo.
+
+     Alguien va a elegir el nombre de otro al registrarse: con
+     sesenta nombres en una lista es cuestion de tiempo. Hasta
+     ahora solo administracion podia deshacerlo, lo que dejaba al
+     guia sin salida en pleno viaje.
+     ============================================================ */
+
+  let registroCache = [];
+
+  async function abrirRegistro() {
+    $('dlg-registro').classList.remove('oculta');
+    $('lista-registro').innerHTML = '<li class="nombre">Cargando…</li>';
+    try {
+      const [alumnos, pulseras] = await Promise.all([
+        Datos.alumnosDe(grupoId), Datos.pulserasTodas(),
+      ]);
+      const porId = {};
+      pulseras.forEach((p) => { porId[p.id] = p.codigo; });
+      registroCache = alumnos
+        .filter((a) => a.activo !== false)
+        .map((a) => ({ ...a, codigo: a.pulsera_id ? porId[a.pulsera_id] : null }))
+        .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+      pintarRegistro();
+    } catch (e) {
+      $('lista-registro').innerHTML =
+        `<li class="nombre">No se pudo cargar: ${e.message || e.codigo}</li>`;
+    }
+  }
+
+  function pintarRegistro() {
+    const q = $('reg-buscar').value.trim().toLowerCase();
+    const lista = q
+      ? registroCache.filter((a) => a.nombre.toLowerCase().includes(q))
+      : registroCache;
+
+    const activos = registroCache.filter((a) => a.codigo).length;
+    $('reg-activos').textContent = `${activos} activados`;
+    $('reg-pendientes').textContent = `${registroCache.length - activos} sin activar`;
+
+    const ul = $('lista-registro');
+    ul.innerHTML = lista.map((a) =>
+      `<li><span class="nombre">${a.nombre}` +
+      (a.codigo ? ` <span class="num">${a.codigo}</span>` : '') + '</span>' +
+      (a.codigo
+        ? `<button class="boton chico" data-liberar="${a.id}">Liberar</button>`
+        : '<span class="insignia neutra">sin activar</span>') +
+      '</li>').join('') ||
+      '<li><span class="nombre">Sin resultados.</span></li>';
+
+    ul.querySelectorAll('[data-liberar]').forEach((b) => {
+      b.addEventListener('click', async () => {
+        const a = registroCache.find((x) => x.id === b.dataset.liberar);
+        if (!confirm(`¿Liberar la pulsera de ${a.nombre}?\n\n` +
+                     'Quedará sin pulsera y podrá volver a escanear para ' +
+                     'registrarse con el nombre correcto. Sus marcajes se conservan.')) return;
+        b.disabled = true;
+        try { await Datos.liberarPulsera(a.id); await abrirRegistro(); }
+        catch (e) {
+          alert('No se pudo: ' + (e.message || e.codigo) +
+                (navigator.onLine ? '' : '\n\nEsto necesita conexión.'));
+          b.disabled = false;
+        }
+      });
+    });
+  }
+
+  /* ============================================================
+     Marcajes pendientes de subir.
+
+     Si el telefono del guia muere, lo que no llego al servidor se
+     pierde. Poder descargarlo y recuperarlo en otro telefono es la
+     unica red de seguridad que existe para ese caso.
+     ============================================================ */
+
+  async function abrirPendientes() {
+    $('dlg-pendientes').classList.remove('oculta');
+    const ops = Almacen.Bandeja.todas();
+    let nombres = {};
+    try {
+      (await Datos.alumnosDe(grupoId)).forEach((a) => { nombres[a.id] = a.nombre; });
+    } catch (e) {}
+
+    $('lista-pendientes').innerHTML = ops.length
+      ? ops.map((o) => {
+          const quien = o.tipo === 'parada'
+            ? `Parada «${o.datos.nombre}»`
+            : (nombres[o.optimista && o.optimista.alumno_id] || o.datos.codigo || '—');
+          const cuando = o.optimista && o.optimista.creado_en
+            ? Geo.hora(o.optimista.creado_en) : '';
+          return `<li><span class="nombre">${quien}</span>` +
+                 `<span class="der-lista">` +
+                 (o.intentos ? `<span class="insignia fuera">${o.intentos} intentos</span>` : '') +
+                 `<span class="hora">${cuando}</span></span></li>`;
+        }).join('')
+      : '<li><span class="nombre">Nada pendiente. Todo está subido.</span></li>';
+  }
+
+  function descargarRespaldo() {
+    const texto = Datos.exportarPendientes();
+    const blob = new Blob([texto], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `respaldo-asistencia-${new Date().toISOString().slice(0, 16)}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+
+  function recuperarRespaldo(archivo) {
+    const lector = new FileReader();
+    lector.onload = async () => {
+      try {
+        const n = Datos.importarPendientes(String(lector.result));
+        alert(`${n} operaciones recuperadas.\n\nSe subirán en cuanto haya señal.`);
+        await Datos.sincronizar();
+        await abrirPendientes();
+        pintarRed();
+        refrescar();
+      } catch (e) {
+        alert('Ese archivo no es un respaldo válido.');
+      }
+    };
+    lector.readAsText(archivo);
+  }
+
   /* ---------- identidad del guia ---------- */
 
   async function abrirDialogoYo() {
@@ -483,6 +622,60 @@
       }
     });
   }
+
+  $('btn-registro').addEventListener('click', abrirRegistro);
+  $('btn-registro-cerrar').addEventListener('click',
+    () => $('dlg-registro').classList.add('oculta'));
+  $('reg-buscar').addEventListener('input', pintarRegistro);
+
+  $('chip-pendientes').addEventListener('click', abrirPendientes);
+  $('btn-pend-cerrar').addEventListener('click',
+    () => $('dlg-pendientes').classList.add('oculta'));
+  $('btn-exportar-pend').addEventListener('click', descargarRespaldo);
+  $('btn-importar-pend').addEventListener('click', () => $('archivo-pend').click());
+  $('archivo-pend').addEventListener('change', (e) => {
+    if (e.target.files && e.target.files[0]) recuperarRespaldo(e.target.files[0]);
+    e.target.value = '';
+  });
+  $('btn-sincronizar').addEventListener('click', async function () {
+    this.disabled = true; this.textContent = 'Enviando…';
+    const r = await Datos.sincronizar();
+    await abrirPendientes(); pintarRed(); refrescar();
+    this.disabled = false; this.textContent = 'Reintentar envío';
+    if (!r.subidos && r.quedan) {
+      alert('No se pudo enviar todavía. Vuelve a intentarlo cuando haya señal.');
+    }
+  });
+
+  $('btn-reabrir').addEventListener('click', async function () {
+    if (!ultimaCerrada) return;
+    if (!confirm(`¿Reabrir «${ultimaCerrada.nombre}»?\n\n` +
+                 'Los alumnos podrán volver a marcar en esa parada. ' +
+                 'Útil si alguien llegó tarde.')) return;
+    this.disabled = true;
+    try {
+      await Datos.reabrirParada(ultimaCerrada.id);
+      await cargarGrupo(grupoId);
+    } catch (e) {
+      alert(e.codigo === 'YA_HAY_PARADA_ABIERTA'
+        ? 'Ya hay otra parada abierta en este grupo. Ciérrala primero.'
+        : 'No se pudo reabrir: ' + (e.message || e.codigo));
+    } finally { this.disabled = false; }
+  });
+
+  $('btn-precargar-todos').addEventListener('click', async function () {
+    this.disabled = true; this.textContent = 'Descargando…';
+    try {
+      const ids = [...$('sel-grupo').options].map((o) => o.value);
+      const r = await Datos.precargarVarios(ids);
+      const bien = r.filter((x) => x.ok).length;
+      alert(`${bien} de ${ids.length} grupos descargados en este teléfono.\n\n` +
+            'Ya puedes trabajar sin señal con cualquiera de ellos.');
+      await cargarGrupo(grupoId);
+    } catch (e) {
+      alert('No se pudo descargar: ' + (e.message || e.codigo));
+    } finally { this.disabled = false; this.textContent = 'Descargar todos'; }
+  });
 
   $('btn-yo').addEventListener('click', abrirDialogoYo);
   $('btn-yo-cerrar').addEventListener('click', () => $('dlg-yo').classList.add('oculta'));
