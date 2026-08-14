@@ -693,13 +693,21 @@ tbody tr:last-child td { border-bottom: none; }
   margin-top: 10px; letter-spacing: .02em;
 }
 
-/* Cartel de acceso: un solo QR, grande, para pegar en papel */
+/* Cartel de acceso: se genera como imagen para poder compartirla */
 .cartel-cuerpo { text-align: center; }
-.cartel-cuerpo canvas, .cartel-cuerpo img { margin: 0 auto; display: block; }
-.cartel-titulo {
-  font-size: 1.35rem; font-weight: 600; letter-spacing: -.03em; margin-top: 18px;
+#cartel-imagen {
+  display: block; margin: 18px auto 0; max-width: 320px; width: 100%;
+  border: 1px solid var(--border-soft); border-radius: 12px;
 }
-.cartel-sub { font-size: .9rem; color: var(--text-2); margin-top: 4px; }
+.cartel-acciones {
+  display: flex; gap: 9px; justify-content: center; flex-wrap: wrap; margin-top: 20px;
+}
+.cartel-enlace { margin-top: 18px; }
+.cartel-enlace code {
+  font-family: var(--mono); font-size: .78rem; color: var(--text-2);
+  background: var(--surface-2); padding: 8px 13px; border-radius: 9px;
+  display: inline-block; word-break: break-all; max-width: 100%;
+}
 
 @media print {
   .barra, .no-imprimir { display: none !important; }
@@ -707,8 +715,5 @@ tbody tr:last-child td { border-bottom: none; }
   .envoltura { padding: 0; max-width: none; }
   .tarjeta-qr { box-shadow: none; border: 1px solid #d8d8dd; }
   .rejilla-qr { grid-template-columns: repeat(4, 1fr); gap: 9px; }
-  .cartel { box-shadow: none; border: none; }
-  .cartel-cuerpo canvas, .cartel-cuerpo img { width: 62mm !important; height: 62mm !important; }
-  /* Imprimir solo el cartel, sin la rejilla de pulseras */
-  body.solo-cartel .rejilla-qr, body.solo-cartel .aviso { display: none !important; }
+  .cartel { display: none; }
 }

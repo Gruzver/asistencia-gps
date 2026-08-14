@@ -8,7 +8,7 @@
 <meta name="color-scheme" content="light">
 <link rel="icon" href="icon-192.png" type="image/png">
 <title>Códigos QR</title>
-<link rel="stylesheet" href="assets/style.css?v=16">
+<link rel="stylesheet" href="assets/style.css?v=17">
 </head>
 <body>
 
@@ -31,20 +31,32 @@
   </div>
 
   <div class="panel cartel">
-    <header class="no-imprimir">
+    <header>
       <h2>Cartel de acceso</h2>
-      <div class="der"><button class="boton chico" id="btn-imprimir-cartel">Imprimir cartel</button></div>
     </header>
     <div class="cuerpo cartel-cuerpo">
-      <p class="nota no-imprimir">Este es el único QR que hay que imprimir. Va en
-        papel —en el bus, en el punto de encuentro, o en el teléfono del guía—,
-        así que puede ser grande y complejo sin problema. El alumno lo escanea una
-        vez para abrir la app; después la app ya recuerda su pulsera.</p>
-      <div id="qr-cartel"></div>
-      <div class="cartel-titulo">Asistencia del viaje</div>
-      <div class="cartel-sub">Escanea para abrir · luego escanea tu pulsera</div>
+      <p class="nota">Este es el único QR que necesitas repartir. El alumno lo
+        escanea una vez para abrir la app; después la app recuerda su pulsera y
+        ya no vuelve a escanear nada.</p>
+
+      <img id="cartel-imagen" alt="Cartel de acceso con código QR">
+
+      <div class="cartel-acciones">
+        <button class="boton primario" id="btn-descargar">Descargar imagen</button>
+        <button class="boton" id="btn-compartir">Compartir</button>
+        <button class="boton" id="btn-copiar">Copiar enlace</button>
+      </div>
+
+      <div class="cartel-enlace">
+        <code id="enlace-alumno"></code>
+      </div>
+      <p class="nota">Descárgala y mándala por WhatsApp, imprímela, o pégala en
+        una diapositiva. Es una imagen normal.</p>
     </div>
   </div>
+
+  <!-- Lienzo oculto donde se compone la imagen del cartel -->
+  <canvas id="lienzo-cartel" class="oculto" width="900" height="1150"></canvas>
 
   <div class="panel no-imprimir" style="margin-bottom:18px">
     <header>
@@ -72,10 +84,10 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=16"></script>
-<script src="assets/geo.js?v=16"></script>
-<script src="assets/almacen.js?v=16"></script>
-<script src="assets/datos.js?v=16"></script>
-<script src="assets/qr.js?v=16"></script>
+<script src="config.js?v=17"></script>
+<script src="assets/geo.js?v=17"></script>
+<script src="assets/almacen.js?v=17"></script>
+<script src="assets/datos.js?v=17"></script>
+<script src="assets/qr.js?v=17"></script>
 </body>
 </html>
